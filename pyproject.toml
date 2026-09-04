@@ -20,8 +20,9 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
-lake = ["pyarrow>=17"]
-dev = ["pytest>=8", "pyarrow>=17", "ruff"]
+# tzdata: pyarrow needs an IANA zone database for timezone-aware timestamps and Windows ships none.
+lake = ["pyarrow>=17", "tzdata; sys_platform == 'win32'"]
+dev = ["pytest>=8", "pyarrow>=17", "tzdata; sys_platform == 'win32'", "ruff"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
