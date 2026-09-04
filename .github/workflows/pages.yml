@@ -1,0 +1,58 @@
+name: Pages
+
+# Builds the demo site's JSON from SYNTHETIC fixtures only and deploys the
+# static `site/` directory to GitHub Pages. No venue data is fetched, stored,
+# or published by this workflow; the build script has no network access path.
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install (dev extras)
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+      - name: Build site data from synthetic fixtures
+        run: python scripts/build_site.py --out site/data
+      - name: Show what was built
+        run: |
+          ls -la site site/data
+          python - <<'PY'
+          import json
+          b = json.load(open("site/data/build.json"))
+          assert b["schema"] == "quantdesk-site/1", b
+          assert b["fixture"]["kind"] == "synthetic-gbm", b["fixture"]
+          print("build.json:", json.dumps(b, indent=2)[:800])
+          PY
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

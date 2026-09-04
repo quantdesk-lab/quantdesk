@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="QuantDesk: a stdlib-only factor research and backtest library with hard honesty gates. Every number on this page is computed on synthetic bars at build time.">
+<meta name="color-scheme" content="light dark">
+<title>QuantDesk</title>
+<!-- self-contained: no external fonts, scripts or styles; the system font stacks in app.css apply -->
+<link rel="stylesheet" href="./app.css">
+</head>
+<body>
+<header class="bar">
+  <div class="bar-in">
+    <a class="brand" href="#home"><span class="glyph" aria-hidden="true">Q</span><span><b>QuantDesk</b><small data-i18n="tagline">factor research with honesty gates</small></span></a>
+    <nav class="tabs" aria-label="Sections">
+      <a class="tab" href="#home" data-i18n="nav_home">Home</a>
+      <a class="tab" href="#explorer" data-i18n="nav_explorer">Explorer</a>
+      <a class="tab" href="#backtest" data-i18n="nav_backtest">Backtest</a>
+      <a class="tab" href="#honesty" data-i18n="nav_honesty">Honesty</a>
+      <a class="tab" href="#method" data-i18n="nav_method">Method</a>
+    </nav>
+    <span class="badge amber" id="synBadge" data-i18n="badge_synthetic" title="No venue data is stored, displayed, or redistributed">synthetic data</span>
+    <button class="icon-btn lang" id="langBtn" type="button" aria-label="Toggle language">ZH</button>
+    <button class="icon-btn" id="themeBtn" type="button" aria-label="Toggle theme" title="Light / dark">&#9681;</button>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ================= HOME ================= -->
+  <section class="view" id="view-home" aria-labelledby="h-home">
+    <div class="hero">
+      <h1 id="h-home" data-i18n="hero_title">Formulaic alphas are research observables, not signals.</h1>
+      <p class="lede" data-i18n="hero_lede">QuantDesk is a stdlib-only Python library that evaluates 19 adapted Alpha101 expressions and a vol-scaled time-series momentum stack on your own bars, then refuses to print any statistic its sample cannot support. This page is the library running on synthetic geometric-Brownian-motion data at build time: the pipeline is real, the numbers are deliberately meaningless.</p>
+      <div class="hero-cta">
+        <a class="btn primary" href="#explorer" data-i18n="cta_explore">Open the factor explorer</a>
+        <a class="btn" href="https://github.com/quantdesk-lab/quantdesk" rel="noopener">GitHub</a>
+        <code class="pipcmd">pip install git+https://github.com/quantdesk-lab/quantdesk</code>
+      </div>
+    </div>
+    <div class="sec"><span class="tag">1</span><span data-i18n="home_board_title">Factor board</span><span class="rule"></span><span class="tag mono" id="homeBoardSym">SYN-1</span></div>
+    <div id="homeBoard" class="board"><div class="empty" data-i18n="loading">Loading</div></div>
+    <div class="sec"><span class="tag">2</span><span data-i18n="home_build_title">Build stamp</span><span class="rule"></span></div>
+    <div id="buildStamp" class="panel"><div class="empty" data-i18n="loading">Loading</div></div>
+  </section>
+
+  <!-- ================= EXPLORER ================= -->
+  <section class="view" id="view-explorer" aria-labelledby="h-explorer">
+    <div class="sec"><span class="tag">1</span><h2 id="h-explorer" data-i18n="explorer_title">Alpha explorer</h2><span class="rule"></span>
+      <div class="seg" id="exSymSeg" aria-label="Symbol"></div></div>
+    <div id="exDisc"></div>
+    <section class="panel">
+      <div class="phead"><h3 data-i18n="explorer_table_title">19 adapted alphas + 11 library rows</h3><span class="cnt" id="exCount"></span></div>
+      <div class="tbl-scroll"><table class="pt" id="exTable"><thead></thead><tbody></tbody></table></div>
+    </section>
+    <div class="sec"><span class="tag">2</span><span data-i18n="explorer_corr_title">Correlation heatmap</span><span class="rule"></span><span class="tag mono" id="corrHover">&nbsp;</span></div>
+    <section class="panel" id="exCorr"><div class="empty" data-i18n="loading">Loading</div></section>
+  </section>
+
+  <!-- ================= BACKTEST ================= -->
+  <section class="view" id="view-backtest" aria-labelledby="h-backtest">
+    <div class="sec"><span class="tag">1</span><h2 id="h-backtest" data-i18n="bt_title">Target-weight backtest</h2><span class="rule"></span>
+      <div class="seg" id="btSymSeg" aria-label="Symbol"></div></div>
+    <div id="btNote"></div>
+    <div class="grid2">
+      <section class="panel"><div class="phead"><h3 data-i18n="bt_chart_title">Equity vs buy-and-hold</h3><span class="cnt" id="btChartMeta"></span></div><div id="btChart" class="chart"></div></section>
+      <div>
+        <div class="kpis" id="btMetrics"></div>
+        <section class="panel" style="margin-top:var(--gap)"><div class="phead"><h3 data-i18n="bt_cost_title">Cost grid</h3><span class="cnt" id="btTrials"></span></div><div class="tbl-scroll" id="btCost"></div></section>
+      </div>
+    </div>
+    <div class="sec"><span class="tag">2</span><span data-i18n="bt_tickets_title">Tickets</span><span class="rule"></span><span class="tag" data-i18n="bt_tickets_tag">every trade explained tick by tick, no language model</span></div>
+    <section class="panel" id="btTickets"><div class="empty" data-i18n="loading">Loading</div></section>
+  </section>
+
+  <!-- ================= HONESTY ================= -->
+  <section class="view" id="view-honesty" aria-labelledby="h-honesty">
+    <div class="sec"><span class="tag">1</span><h2 id="h-honesty" data-i18n="hon_null_title">Empirical null</h2><span class="rule"></span><span class="tag mono" id="nullMeta"></span></div>
+    <section class="panel" id="nullChart"><div class="empty" data-i18n="loading">Loading</div></section>
+    <div class="grid2">
+      <section class="panel"><div class="phead"><h3 data-i18n="hon_gates_title">Gates that refuse to print</h3></div><ul class="list" id="gatesList"></ul></section>
+      <section class="panel"><div class="phead"><h3 data-i18n="hon_not_title">What this is not</h3></div><ul class="list" id="notList"></ul></section>
+    </div>
+    <section class="panel disc" id="termsNote"></section>
+  </section>
+
+  <!-- ================= METHOD ================= -->
+  <section class="view" id="view-method" aria-labelledby="h-method">
+    <div class="sec"><span class="tag">1</span><h2 id="h-method" data-i18n="method_title">Verdict matrix</h2><span class="rule"></span><span class="tag" data-i18n="method_tag">15 candidate inputs, one standalone survivor</span></div>
+    <section class="panel"><div class="tbl-scroll" id="methodTable"></div></section>
+    <section class="panel disc" style="margin-top:var(--gap)"><p data-i18n="method_note">Verdicts assume a retail venue with roughly 190 bps round-trip cost measured in 2026-08. At that fee level the only input that survives as a standalone position rule is vol-scaled time-series momentum; everything else is a regime feature, a risk layer, or an execution-layer signal.</p></section>
+  </section>
+
+</main>
+
+<footer class="foot">
+  <div class="foot-in">
+    <span>QuantDesk 0.1.0 &middot; MIT</span>
+    <a href="https://github.com/quantdesk-lab/quantdesk" rel="noopener">GitHub</a>
+    <a href="https://github.com/Charlesdingd/alpha-evolve-loop" rel="noopener">alpha-evolve-loop</a>
+    <a href="https://github.com/quantdesk-lab/quantdesk/tree/main/docs" rel="noopener" data-i18n="foot_docs">Docs</a>
+    <span class="muted" data-i18n="foot_note">Synthetic data only. No venue data is stored, displayed, or redistributed.</span>
+  </div>
+</footer>
+
+<div class="drawer-mask" id="drawerMask" hidden></div>
+<aside class="drawer" id="drawer" hidden aria-label="Ticket decision stream">
+  <div class="drawer-head"><b id="drawerTitle"></b><button class="icon-btn" id="drawerClose" type="button" aria-label="Close">&times;</button></div>
+  <div class="drawer-body" id="drawerBody"></div>
+</aside>
+
+<script src="./app.js"></script>
+</body>
+</html>

@@ -1,0 +1,23 @@
+# --- never publish data, state or secrets ---------------------------------
+# lake / state directories at the repo root (site/data/*.json IS committed: it is
+# built from synthetic fixtures by scripts/build_site.py)
+/data/
+!site/data/*.json
+*.env
+.env
+out/
+*.db*
+*.parquet
+
+# --- build / tool artefacts ------------------------------------------------
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+dist/
+build/
+*.egg-info/
+
+# --- local virtualenvs (the README's quickstart creates .venv in-tree) -------
+.venv/
+venv/
