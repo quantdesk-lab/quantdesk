@@ -36,6 +36,10 @@ COST_GRID = (0, 10, 20, 40, 60, 120)          # per-side bps swept by the backte
 GATES_DEFAULT = {"min_ic_pairs": 30, "min_ic_eff": 8}
 BOARD_BARS = 350                               # the board's own fetch limit (1h and 1d)
 BACKTEST_BARS_1D = 760                         # ~2y of daily bars: 263 warmup + ~500 decisions
+# The fixture clock is pinned, not wall-clock: the same seed must give a
+# byte-identical board/backtest on every rebuild (otherwise each build shifted
+# every timestamp and re-wrote ~1 MB of unchanged numbers). 2026-09-01T00:00Z.
+FIXTURE_NOW = 1788220800.0
 
 
 def _import_quantdesk():
@@ -164,6 +168,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--symbols", default="SYN-1,SYN-2,SYN-3", help="comma-separated synthetic symbols")
     ap.add_argument("--reseeds", type=int, default=20, help="random walks for the empirical null")
     ap.add_argument("--null-bars", type=int, default=BOARD_BARS, help="bars per null random walk")
+    ap.add_argument("--now", type=float, default=FIXTURE_NOW,
+                    help="fixture clock (unix seconds); pinned by default so rebuilds are byte-identical")
     args = ap.parse_args(argv)
 
     out = Path(args.out)
@@ -175,8 +181,8 @@ def main(argv: list[str] | None = None) -> int:
 
     t_start = time.perf_counter()
     qd = _import_quantdesk()
-    now = float(int(time.time()))
-    print(f"quantdesk {getattr(qd, '__version__', '?')} | python {platform.python_version()} | seed {args.seed} | {symbols}")
+    now = float(int(args.now))
+    print(f"quantdesk {getattr(qd, '__version__', '?')} | python {platform.python_version()} | seed {args.seed} | {symbols} | fixture clock {int(now)}")
 
     client = _guard("fixture", lambda: _make_client(args.seed, now))
     if isinstance(client, dict):  # fixture itself failed: every data file records why
@@ -185,6 +191,7 @@ def main(argv: list[str] | None = None) -> int:
         board = _guard("board", lambda: build_board(symbols, client, now))
         backtest = _guard("backtest", lambda: build_backtest(symbols, client, now))
     null = _guard("null", lambda: build_null(args.reseeds, args.null_bars, args.seed))
+    decisions = _split_decisions(backtest)
 
     board_ok = isinstance(board, dict) and board.get("ok", True) is not False
     build = {
@@ -213,12 +220,39 @@ def main(argv: list[str] | None = None) -> int:
 
     print("output:", _scrub(str(out)))
     total = 0
-    for name, doc in (("build.json", build), ("board.json", board), ("backtest.json", backtest), ("null.json", null)):
+    for name, doc in (("build.json", build), ("board.json", board), ("backtest.json", backtest),
+                      ("backtest_decisions.json", decisions), ("null.json", null)):
         total += _write(out, name, doc)
     failed = [k for k, v in build["status"].items() if not v]
     print(f"total {total:,d} bytes in {time.perf_counter() - t_start:.1f}s"
           + (f" | FAILED: {', '.join(failed)} (written as ok:false)" if failed else " | all ok"))
     return 0
+
+
+def _split_decisions(backtest: Any) -> dict[str, Any]:
+    """Move every ticket's tick-by-tick ``decisions`` into a second file.
+
+    The tickets table only needs the per-ticket summary; the per-tick
+    reasoning (three quarters of the payload) is fetched when a reader opens
+    a ticket. Each ticket keeps ``n_fills`` so the table needs no decisions.
+    """
+    out: dict[str, Any] = {"schema": SCHEMA, "symbols": {}}
+    if not isinstance(backtest, dict) or not isinstance(backtest.get("symbols"), dict):
+        return out
+    for sym, s in backtest["symbols"].items():
+        if not isinstance(s, dict) or not isinstance(s.get("tickets"), list):
+            continue
+        per_ticket: dict[str, list] = {}
+        for tk in s["tickets"]:
+            if not isinstance(tk, dict):
+                continue
+            decs = tk.pop("decisions", None) or []
+            tk["n_fills"] = sum(1 for d in decs if isinstance(d, dict)
+                                and isinstance(d.get("outcome"), dict)
+                                and d["outcome"].get("fill_px") is not None)
+            per_ticket[str(tk.get("ticket_id"))] = decs
+        out["symbols"][sym] = per_ticket
+    return out
 
 
 def _make_client(seed: int, now: float) -> Any:

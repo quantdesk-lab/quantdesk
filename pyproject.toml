@@ -29,6 +29,8 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# src layout: let `pytest` work from a fresh clone before `pip install -e .`
+pythonpath = ["src"]
 
 [tool.ruff]
 line-length = 100

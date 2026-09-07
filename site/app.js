@@ -11,7 +11,7 @@ const I18N = {
     nav_home: "Home", nav_explorer: "Explorer", nav_backtest: "Backtest", nav_honesty: "Honesty", nav_method: "Method",
     badge_synthetic: "synthetic data", loading: "Loading", unavailable: "Unavailable:",
     hero_title: "Agents propose. Gates decide.",
-    hero_lede: "QuantDesk is an agentic factor-mining and quant-strategy research stack. This page runs its deterministic half: a stdlib-only Python library that evaluates 19 adapted Alpha101 expressions and a vol-scaled time-series momentum stack, refuses to print a Rank-IC or a correlation its sample cannot support, and explains every simulated backtest trade tick by tick with no model in the loop. The LLM alpha-search loop is the sibling repository and is being merged in. Everything here is computed at build time on synthetic geometric-Brownian-motion data: the pipeline is real, the numbers are deliberately meaningless.",
+    hero_lede: "QuantDesk is an agentic factor-mining and quant-strategy research stack. This page runs its deterministic half: a stdlib-only Python library that evaluates 19 adapted Alpha101 expressions and a vol-scaled time-series momentum stack, refuses to print a Rank-IC or a correlation its sample cannot support, and explains every simulated backtest trade tick by tick with no model in the loop. The LLM alpha-search loop lives in the sibling repository alpha-evolve-loop. Everything here is computed at build time on synthetic geometric-Brownian-motion data: the pipeline is real, the numbers are deliberately meaningless.",
     cta_explore: "Open the factor explorer", home_board_title: "Factor board", home_build_title: "Build stamp",
     explorer_title: "Alpha explorer", explorer_table_title: "19 adapted alphas + 11 library rows", explorer_corr_title: "Correlation heatmap",
     bt_title: "Target-weight backtest", bt_chart_title: "Equity vs buy-and-hold", bt_cost_title: "Cost grid", bt_tickets_title: "Tickets",
@@ -65,7 +65,7 @@ const I18N = {
     tagline: "带诚实闸门的 agentic 因子挖掘与策略研究", nav_home: "首页", nav_explorer: "浏览器", nav_backtest: "回测", nav_honesty: "诚实", nav_method: "方法",
     badge_synthetic: "合成数据", loading: "加载中", unavailable: "不可用:",
     hero_title: "Agent 负责提出,闸门负责裁决。",
-    hero_lede: "QuantDesk 是一个 agentic 因子挖掘与量化策略研究栈。本页运行的是它的确定性一半:一个仅依赖标准库的 Python 因子库,评估 19 个时序化 Alpha101 表达式和波动率缩放的时序动量栈,拒绝打印样本不足以支撑的 Rank-IC 或相关性,并对每一笔模拟回测交易逐 tick 给出解释,过程中没有模型参与。LLM alpha 搜索循环在姊妹仓库中,正在并入。本页所有数字都是构建时在合成几何布朗运动数据上算出的:流水线是真的,数字刻意无意义。",
+    hero_lede: "QuantDesk 是一个 agentic 因子挖掘与量化策略研究栈。本页运行的是它的确定性一半:一个仅依赖标准库的 Python 因子库,评估 19 个时序化 Alpha101 表达式和波动率缩放的时序动量栈,拒绝打印样本不足以支撑的 Rank-IC 或相关性,并对每一笔模拟回测交易逐 tick 给出解释,过程中没有模型参与。LLM alpha 搜索循环在姊妹仓库 alpha-evolve-loop 中。本页所有数字都是构建时在合成几何布朗运动数据上算出的:流水线是真的,数字刻意无意义。",
     cta_explore: "打开因子浏览器", home_board_title: "因子板", home_build_title: "构建戳",
     explorer_title: "Alpha 浏览器", explorer_table_title: "19 个适配 alpha + 11 个库因子行", explorer_corr_title: "相关性热图",
     bt_title: "目标权重回测", bt_chart_title: "策略 vs 买入持有", bt_cost_title: "成本网格", bt_tickets_title: "交易单",
@@ -149,7 +149,7 @@ function fmtTs(ts) {
 }
 const failBox = (d, what) => `<div class="empty">${esc(t("unavailable"))} ${esc(what)}<div class="err">${esc((d && d.error) || "no payload")}</div></div>`;
 const GATES = { min_ic_pairs: 30, min_ic_eff: 8 };
-const DATA = { build: null, board: null, backtest: null, null: null };
+const DATA = { build: null, board: null, backtest: null, null: null, decisions: null };
 const EX = { sym: null, sortKey: "order", dir: 1 };
 const BT = { sym: null };
 
@@ -366,7 +366,7 @@ function eqChart(eq, bh) {
 }
 function ticketRow(tk) {
   const pnlCls = isNum(tk.pnl) ? (tk.pnl >= 0 ? "pos" : "neg") : "";
-  const nFills = (Array.isArray(tk.decisions) ? tk.decisions : []).filter(d => d && d.outcome && d.outcome.fill_px != null).length;
+  const nFills = isNum(tk.n_fills) ? tk.n_fills : (Array.isArray(tk.decisions) ? tk.decisions : []).filter(d => d && d.outcome && d.outcome.fill_px != null).length;
   return `<tr class="clickable" data-tk="${esc(tk.ticket_id)}"><td><b>${esc(tk.ticket_id)}</b></td><td><span class="tag2 ${tk.side === "long" ? "t-up" : "t-neu"}">${esc(tk.side === "long" ? t("long") : tk.side === "flat" ? t("flat") : tk.side)}</span></td>
     <td>${fmtTs(tk.open_ts)}</td><td>${tk.close_ts == null ? `<small>${esc(t("still_open"))}</small>` : fmtTs(tk.close_ts)}</td><td>${px(tk.entry)} / ${px(tk.exit)}</td><td>${nf(tk.size, 2)}</td><td>${tk.side === "long" ? nf(tk.peak_weight, 2) : DASH}</td><td>${nFills}</td>
     <td class="${pnlCls}">${isNum(tk.pnl) ? sf(tk.pnl, 2) : DASH}</td><td>${nf(tk.fees, 2)}</td><td>${tk.n_decisions ?? DASH}</td><td class="sub" style="text-align:left">${esc(tk.thesis || "")}</td></tr>`;
@@ -374,6 +374,7 @@ function ticketRow(tk) {
 function renderBacktest() {
   const d = DATA.backtest, note = $("btNote");
   const hosts = ["btChart", "btMetrics", "btCost", "btTickets"];
+  if (d === null) { note.innerHTML = `<section class="panel disc"><p class="muted">${esc(t("loading"))}…</p></section>`; hosts.forEach(h => { $(h).innerHTML = ""; }); return; }
   if (!d || d.ok === false || !d.symbols || typeof d.symbols !== "object") { note.innerHTML = failBox(d, "backtest.json"); hosts.forEach(h => { $(h).innerHTML = ""; }); $("btSymSeg").innerHTML = ""; return; }
   const names = Object.keys(d.symbols);
   if (!names.includes(BT.sym)) BT.sym = names.includes("SYN-1") ? "SYN-1" : names[0];
@@ -405,12 +406,24 @@ function decisionHtml(dc) {
     <div class="reason">${esc(dc.reasoning || "")}</div>
     <div class="out">${out.fill_px == null ? esc(t("no_fill")) : `${esc(t("fill"))} ${px(out.fill_px)} (${esc(t("simulated"))}) · ${esc(t("fee"))} ${nf(out.fee, 2)}`} · ${esc(t("weight_after"))} ${nf(out.weight_after, 2)}</div></div>`;
 }
+async function decisionsFor(tk) {
+  // Per-tick decisions live in data/backtest_decisions.json (written next to
+  // backtest.json by build_site.py) and are fetched once, on the first ticket opened.
+  if (Array.isArray(tk.decisions)) return tk.decisions;
+  if (!DATA.decisions) DATA.decisions = await loadJson("backtest_decisions");
+  const bySym = DATA.decisions && DATA.decisions.symbols ? DATA.decisions.symbols[tk.symbol || BT.sym] : null;
+  return (bySym && bySym[String(tk.ticket_id)]) || [];
+}
 function openDrawer(tk) {
   $("drawerTitle").textContent = `${tk.ticket_id} · ${tk.symbol || ""} · ${tk.side === "long" ? t("long") : tk.side === "flat" ? t("flat") : tk.side || ""}`;
-  const decs = Array.isArray(tk.decisions) ? tk.decisions : [];
-  $("drawerBody").innerHTML = `<p class="why"><b>${esc(t("why_open"))}:</b> ${esc(tk.why_open || DASH)}</p><p class="why"><b>${esc(t("why_close"))}:</b> ${esc(tk.why_close || t("still_open"))}</p>
-    <p class="why mono" style="font-size:12px">${esc(t("tk_px"))} ${px(tk.entry)} / ${px(tk.exit)} · ${esc(t("tk_size"))} ${nf(tk.size, 2)} · ${esc(t("tk_pnl"))} ${isNum(tk.pnl) ? sf(tk.pnl, 2) : DASH} · ${esc(t("tk_fees"))} ${nf(tk.fees, 2)} · ${decs.length} ${esc(t("tk_n"))}</p>${decs.map(decisionHtml).join("")}`;
+  const head = `<p class="why"><b>${esc(t("why_open"))}:</b> ${esc(tk.why_open || DASH)}</p><p class="why"><b>${esc(t("why_close"))}:</b> ${esc(tk.why_close || t("still_open"))}</p>`;
+  const meta = (n) => `<p class="why mono" style="font-size:12px">${esc(t("tk_px"))} ${px(tk.entry)} / ${px(tk.exit)} · ${esc(t("tk_size"))} ${nf(tk.size, 2)} · ${esc(t("tk_pnl"))} ${isNum(tk.pnl) ? sf(tk.pnl, 2) : DASH} · ${esc(t("tk_fees"))} ${nf(tk.fees, 2)} · ${n} ${esc(t("tk_n"))}</p>`;
+  $("drawerBody").innerHTML = head + meta(tk.n_decisions ?? DASH) + `<p class="muted">${esc(t("loading"))}…</p>`;
   $("drawer").hidden = false; $("drawerMask").hidden = false;
+  decisionsFor(tk).then(decs => {
+    if ($("drawer").hidden) return;
+    $("drawerBody").innerHTML = head + meta(decs.length) + (decs.length ? decs.map(decisionHtml).join("") : `<div class="empty">${DASH}</div>`);
+  });
 }
 function closeDrawer() { $("drawer").hidden = true; $("drawerMask").hidden = true; }
 
@@ -505,9 +518,13 @@ window.addEventListener("hashchange", applyHash);
   const th = store.get("qd-theme"); if (th === "dark" || th === "light") document.documentElement.setAttribute("data-theme", th);
   const lg = store.get("qd-lang"); if (lg === "zh" || lg === "en") LANG = lg;
   applyI18n(); applyHash();
-  Promise.all(["build", "board", "backtest", "null"].map(loadJson)).then(([build, board, backtest, nul]) => {
-    DATA.build = build; DATA.board = board; DATA.backtest = backtest; DATA.null = nul;
+  // First paint waits only on the small files; the backtest payload (equity
+  // curves + ticket summaries) streams in right after, and per-tick decisions
+  // load on demand when a ticket is opened.
+  Promise.all(["build", "board", "null"].map(loadJson)).then(([build, board, nul]) => {
+    DATA.build = build; DATA.board = board; DATA.null = nul;
     if (build && build.gates) { GATES.min_ic_pairs = build.gates.min_ic_pairs ?? GATES.min_ic_pairs; GATES.min_ic_eff = build.gates.min_ic_eff ?? GATES.min_ic_eff; }
     renderAll();
-  });
+    return loadJson("backtest");
+  }).then(backtest => { DATA.backtest = backtest; renderBacktest(); });
 })();

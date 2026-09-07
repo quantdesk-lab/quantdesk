@@ -1,27 +1,75 @@
 # QuantDesk
 
-Agentic factor mining and quantitative-strategy research: LLM agents propose,
-code-enforced statistical gates decide. This repository is the deterministic
-half of that stack - a pure standard-library factor library, honesty-gated
-Rank-IC evaluation, and a fee-first event backtester that explains every
-simulated trade tick by tick with no model in the loop. The agentic half, the
-LLM alpha-search loop, lives in [alpha-evolve-loop](https://github.com/Charlesdingd/alpha-evolve-loop)
-today and is being merged here (see [Factor mining](#factor-mining-the-agentic-loop)).
+**A quant research library that refuses to print numbers it cannot support.**
+Pure standard-library Python: 19 adapted formulaic alphas, vol-scaled
+time-series momentum, microstructure observables, a Rank-IC research board
+with refusal gates, and a fee-first event backtester that explains every
+simulated trade tick by tick - with no language model anywhere in the loop.
 Nothing here trades.
-
-**Not a trading desk despite the name.** QuantDesk contains no venue client,
-no order path, no keys, and no recorded market data. It computes factors,
-evaluates them honestly, and backtests them after fees.
 
 [![CI](https://github.com/quantdesk-lab/quantdesk/actions/workflows/ci.yml/badge.svg)](https://github.com/quantdesk-lab/quantdesk/actions/workflows/ci.yml)
 [![Pages](https://github.com/quantdesk-lab/quantdesk/actions/workflows/pages.yml/badge.svg)](https://quantdesk-lab.github.io/)
 ![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue)
+![Dependencies](https://img.shields.io/badge/dependencies-none-blue)
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
 ![Tests](https://img.shields.io/badge/tests-271%20passing-brightgreen)
 
-**Live demo:** <https://quantdesk-lab.github.io/> - every figure on
-that page is computed at build time on synthetic geometric-Brownian-motion
-bars. No venue data is stored, displayed, or redistributed.
+[![QuantDesk demo: factor board with refusal gates](docs/assets/hero.png)](https://quantdesk-lab.github.io/)
+
+**Live demo: <https://quantdesk-lab.github.io/>** - the factor board above,
+an alpha explorer, a cost-grid backtest with per-tick trade tickets, and an
+empirical null band. Every figure is computed at build time on synthetic
+geometric-Brownian-motion bars; the `REFUSED` badges are the library
+declining to report an IC whose effective sample is too small.
+
+## Thirty seconds
+
+```bash
+pip install git+https://github.com/quantdesk-lab/quantdesk     # no dependencies
+```
+
+```python
+from quantdesk.demo.fixtures import gbm_bars, split_ohlcv
+from quantdesk.factors.alpha101 import alpha001
+from quantdesk.research.board import ic_for
+
+c = split_ohlcv(gbm_bars(400, seed=7, bar_seconds=3600))   # synthetic hourly OHLCV
+a = alpha001(c["o"], c["h"], c["l"], c["c"], c["v"])         # one adapted alpha, one pass, no lookahead
+
+ic_for(a, c["c"], h=1)     # {'h': 1, 'ic': -0.0155, 'n': 316, 'overlap': False}
+ic_for(a, c["c"], h=24)    # {'h': 24, 'ic': -0.062, 'n': 293, 'n_eff': 12, 'overlap': True}
+ic_for(a[:110], c["c"][:110], h=1)   # {'h': 1, 'ic': None, 'n': 26, ...}  <- refused: n < 30
+```
+
+The third call is the whole idea: below 30 aligned pairs the IC is `None`
+and the sample size is still reported. On overlapping horizons the row also
+carries `n_eff = n // h`, and an IC backed by fewer than 8 effective samples
+is nulled the same way. A number you cannot defend is not printed.
+
+## What this demonstrates
+
+QuantDesk is a portfolio project. The things it is meant to show:
+
+- **Numerics without numpy.** A 23-operator time-series library
+  (`delay`, `delta`, `ts_rank`, `ts_argmax`, `ts_scale`, `correlation`,
+  `signedpower`, ...), 19 alphas, EWMA/Yang-Zhang/Rogers-Satchell
+  volatility, robust z-scores and Spearman Rank-IC on plain Python lists,
+  pinned by hand-computed closed-form tests.
+- **Statistical honesty as code, not policy.** Refusal gates on sample size
+  and effective sample, an empirical null band from reseeded random walks,
+  fee-after verdicts, trial counts printed beside results, and a
+  `docs/HONESTY.md` that every number in the repository is held to.
+- **No-lookahead proven by tests.** Prefix-determinism is asserted for every
+  alpha (`fn(x[:t+1])[t]` equals `fn(x)[t]`), the still-forming bar is
+  dropped before any factor sees it, decisions on close(*t*) fill at
+  open(*t+1*), and the research board's momentum and volatility rows are
+  prefix evaluations of the production functions themselves.
+- **Explainability with zero language models.** Every backtest decision
+  becomes a ticket with the observation, the policy-table step, and an
+  English sentence generated from the numbers.
+- **Sources named, adaptations stated.** Each alpha entry cites its paper
+  number and lists how the cross-sectional original was recast as a
+  time-series form; `NOTICE.md` records provenance.
 
 ## What it is
 
@@ -36,11 +84,8 @@ bars. No venue data is stored, displayed, or redistributed.
   `paper_ref` to the alpha number; the paper's text, notation and
   cross-sectional forms are not reproduced (for the alphas that use no
   cross-sectional operator the restatement necessarily coincides with the
-  paper's arithmetic - `NOTICE.md` says which). Built on a **23-operator
-  time-series library**
-  (`delay`, `delta`, `ts_rank`, `ts_argmax`, `ts_scale`, `correlation`,
-  `signedpower`, ...). Element *t* depends only on elements <= *t*, and a
-  prefix-determinism test proves it for every alpha.
+  paper's arithmetic - `NOTICE.md` says which). Element *t* depends only on
+  elements <= *t*, and a prefix-determinism test proves it for every alpha.
 - **Time-series momentum (TSMOM)** with the direction rule of
   Moskowitz-Ooi-Pedersen (2012) and volatility scaling using the parameters
   as published in Harvey et al. (2022): zero-mean EWMA variance, fast
@@ -126,17 +171,18 @@ bars. No venue data is stored, displayed, or redistributed.
 **Synthetic fixtures** (`src/quantdesk/demo/fixtures.py`)
 
 - Seeded geometric-Brownian-motion OHLCV bars for `SYN-1..3`, the only data
-  the demo site ever sees.
+  the demo site ever sees. The fixture clock is pinned, so a rebuild of the
+  site is byte-identical.
 
 ## Quickstart
 
 ```bash
 git clone https://github.com/quantdesk-lab/quantdesk
 cd quantdesk
+pytest -q                                          # 271 tests, no network, no install needed (src layout is on pytest's path)
+
 python -m venv .venv && . .venv/bin/activate     # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"                            # pytest, pyarrow, ruff
-
-pytest -q                                          # 271 tests, no network
 python -m quantdesk.backtest --help                # bring your own 1m candles
 python scripts/build_site.py --out site/data       # rebuild the demo JSON from synthetic bars
 ```
@@ -146,7 +192,7 @@ factor, the policy table, and both backtest engines on the standard library
 alone. `pyarrow` is needed only to read a Parquet lake (`pip install -e
 ".[lake]"`) and is imported lazily.
 
-A thirty-second tour:
+A longer tour - momentum, the policy table, and the alpha registry:
 
 ```python
 import math, random
@@ -187,22 +233,20 @@ keeps a list of sources that turned out not to exist.
 
 ## Factor mining: the agentic loop
 
-QuantDesk's mining engine is
-<https://github.com/Charlesdingd/alpha-evolve-loop>, an LLM-driven alpha
-search loop scored by an **external** production simulator: a language-model
-designer proposes candidate expressions, the platform's own simulator scores
-them, a two-level Thompson-sampling bandit (which factor family to lean on;
-whether to deepen archived winners or widen into fresh ideas) chooses what to
-try next, and every verdict is archived verbatim so the lineage of each
-expression can be reconstructed from the archive alone. The model never scores
-itself; the code decides what counts as evidence.
+The mining engine that this library was built to judge for lives in
+<https://github.com/Charlesdingd/alpha-evolve-loop>: a language-model
+designer proposes candidate expressions, an **external** production
+simulator scores them, a two-level Thompson-sampling bandit (which factor
+family to lean on; whether to deepen archived winners or widen into fresh
+ideas) chooses what to try next, and every verdict is archived verbatim so
+the lineage of each expression can be reconstructed from the archive alone.
+The model never scores itself; the code decides what counts as evidence.
 
 This repository is the deterministic counterpart: the factor library, the
-no-lookahead evaluator and the fee-aware backtester that a search loop needs
-as a local judge. Merging the loop into this package behind a `Judge`
-protocol - with the Rank-IC gates in `quantdesk.research` as the default
-judge, so the loop runs end to end without any third-party platform - is the
-first item on the roadmap and is **not built** yet.
+no-lookahead evaluator and the fee-aware backtester that such a loop needs
+as a local judge. A loop that runs end to end on this package alone, with
+the Rank-IC gates in `quantdesk.research` as the judge, is on the roadmap
+and is **not built**.
 
 ## Roadmap
 
