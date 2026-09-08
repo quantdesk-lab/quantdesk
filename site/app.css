@@ -143,7 +143,8 @@ table.pt{width:100%;border-collapse:collapse}
 .track>i{height:100%}
 .dbar{position:relative;height:8px;border-radius:4px;background:var(--panel-3);margin-top:6px}
 .dbar i{position:absolute;top:0;bottom:0} .dbar .fill{border-radius:2px}
-.dbar .tick{width:2px;background:var(--faint);top:-2px;bottom:-2px} .dbar .zero{width:2px;background:var(--border-strong);top:-2px;bottom:-2px}
+/* the bar's ticks share a class name with the ticket cards below (.tick); zero the card box here */
+.dbar .tick{width:2px;background:var(--faint);top:-2px;bottom:-2px;padding:0;margin:0;border:0;border-radius:0} .dbar .zero{width:2px;background:var(--border-strong);top:-2px;bottom:-2px}
 .tag2{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:1px 6px;border-radius:5px;white-space:nowrap}
 .t-hot{color:var(--loss);background:var(--loss-soft)} .t-warm{color:var(--amber);background:var(--amber-soft)} .t-neu{color:var(--muted);background:var(--panel-3)}
 .t-up{color:var(--r-up);background:color-mix(in srgb,var(--r-up) 14%,transparent)} .t-dn{color:var(--r-down);background:color-mix(in srgb,var(--r-down) 14%,transparent)}
