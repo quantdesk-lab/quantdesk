@@ -6,6 +6,11 @@ documentation may describe any of it in the present tense
 (`docs/HONESTY.md`, rule 12). Items are listed in the order they would
 unlock each other; no dates are attached because none are known.
 
+Built since 0.1.0 and therefore removed from this page: the closed-loop
+factor search with a local judge, the trial ledger with multiple-testing
+deflation, and the touch-once holdout enforced in code (`docs/SEARCH.md`,
+`quantdesk.search`).
+
 ## NOT BUILT: cross-sectional Rank-IC with breadth gates
 
 Today the research board computes **time-series** Spearman IC per symbol
@@ -26,20 +31,23 @@ symbols is meaningless. The cross-sectional version would:
 Depends on: a user-supplied panel of 100+ symbols of daily bars. The library
 will not fetch them (see `docs/DATA.md`).
 
-## NOT BUILT: walk-forward evaluation with purged cross-validation
+## NOT BUILT: what remains of walk-forward evaluation
 
-Today the backtester runs a single window. The walk-forward protocol would
-add:
+The search loop has a single purged and embargoed in-sample / holdout split,
+block stability, a trial ledger and IC-level deflation (`docs/SEARCH.md`).
+What it does not have:
 
-- rolling train/evaluation splits with **purging** (drop training samples
-  whose label horizon overlaps the evaluation window) and an **embargo**
-  after each evaluation window;
-- a **touch-once holdout** enforced in code: the most recent window is
-  evaluated once per signal family and the fact is recorded in the output;
-- a **trial ledger**: every run of a signal family increments a counter that
-  is printed beside the result, with a deflated-Sharpe style adjustment;
-- rejection of any sweep winner that flips sign under a different random
-  seed or a shuffled start date.
+- **rolling multi-fold evaluation for fitted models** - purging and
+  embargo between every train and evaluation window once a model with
+  parameters estimated on the data exists (today no such model exists; an
+  expression has no fitted parameters, so one boundary suffices);
+- a **deflated Sharpe** (Bailey and Lopez de Prado 2014) on the fee-after
+  backtest of a survivor - on a few hundred holdout bars the standard error
+  of an annualized Sharpe is several units, so the number would be
+  indefensible; the cost grid and `dies_at_bps` stand in for it;
+- rejection of a sweep winner that flips sign under a **different random
+  seed or a shuffled start date** - the loop reports block-level sign
+  agreement, not a perturbation test.
 
 Depends on: nothing external; this is pure library work.
 
@@ -56,35 +64,25 @@ not as a signal.
 
 Depends on: the cross-sectional IC pipeline above.
 
-## NOT BUILT: platform-agnostic factor-search loop with a local judge
+## NOT BUILT: a language-model designer behind the search loop
 
-The sibling project `alpha-evolve-loop` searches over factor expressions
-with a language-model designer and an **external** simulator as the judge.
-The corresponding loop for this library would replace the external judge
-with a **local** one built from the pieces here:
+The loop's designer is a seeded mutation operator by design, so the
+repository keeps its "no language model anywhere" property and every run
+replays exactly. A model-backed designer would plug into the same
+`propose(mode, family, parents)` surface and be judged by the same local
+gates; it is not built, and if it ever is, it will live behind an optional
+interface with no model call in this package.
 
-- candidate expressions over the 23-operator time-series library;
-- the research board's time-series Rank-IC, decay, and turnover proxy as the
-  scoring function, with the same refusal gates;
-- the empirical null band (`quantdesk.research.null_calibration`) as the
-  acceptance threshold: a candidate is "interesting" only when its |IC|
-  leaves the band a random walk produces;
-- the fee-after backtest as the final filter.
-
-The designer may be a language model or a plain mutation operator; the
-judge must be deterministic and local. Not started.
-
-Depends on: walk-forward evaluation (so the loop cannot overfit to a single
-window) and user-supplied data.
+Depends on: nothing; deliberately not started.
 
 ## NOT BUILT: in-browser recompute via Pyodide
 
 The demo site today renders JSON files computed at build time. Because the
 core library is pure standard-library Python, it could run inside the
 browser under Pyodide so a reader can change a seed, a cost, a band width,
-or a lookback and see the board and the backtest recompute locally, with no
-server and no data leaving the page. Not started; the build-time JSON
-remains the only site data path.
+or a lookback and see the board, the backtest and the search recompute
+locally, with no server and no data leaving the page. Not started; the
+build-time JSON remains the only site data path.
 
 Depends on: nothing beyond packaging work, but it is deliberately last -
 it makes the site more interesting without making the library more honest.

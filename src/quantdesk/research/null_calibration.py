@@ -12,7 +12,11 @@ The output is the site's ``null.json``::
 
     {n_reseeds, bars, horizon, timeframe,
      alphas: [{id, num, abs_ic_p50, abs_ic_p95, abs_ic_max, n, n_pairs_median}],
-     pooled: {p50, p95, p99, n}, note}
+     pooled: {p50, p95, p99, n}, samples: [[abs_ic, n], ...], note}
+
+``samples`` lists every printable |IC| with its pair count; the search
+loop's gate calibration (``quantdesk.search.gates``) reads it to check the
+analytic null scale ``1/sqrt(n-1)`` against these walks.
 
 Reading it: with ``n`` independent pairs, the null Spearman correlation has a
 standard deviation near ``1/sqrt(n-1)`` whatever the factor's own
@@ -107,6 +111,7 @@ def null_ic_distribution(
     per_alpha: dict[str, list[float]] = {e["id"]: [] for e in ALPHAS}
     pairs: dict[str, list[int]] = {e["id"]: [] for e in ALPHAS}
     pooled: list[float] = []
+    samples: list[list[float]] = []  # [abs_ic, n] per printable IC: feeds the search gates
     for k in range(n_reseeds):
         rows = alpha_ics_on_walk(
             bars, seed=seed0 + k, horizon=horizon, timeframe=timeframe, sigma=sigma)
@@ -117,6 +122,7 @@ def null_ic_distribution(
                 continue
             per_alpha[aid].append(abs(float(ic)))
             pooled.append(abs(float(ic)))
+            samples.append([round(abs(float(ic)), 6), int(r["n"])])
     alphas: list[dict[str, Any]] = []
     for entry in ALPHAS:
         aid = entry["id"]
@@ -142,6 +148,7 @@ def null_ic_distribution(
             "p99": _r(percentile(pooled, 99)),
             "n": len(pooled),
         },
+        "samples": samples,
         "note": _NOTE,
     }
 

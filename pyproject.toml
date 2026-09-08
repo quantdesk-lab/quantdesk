@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "quantdesk"
-version = "0.1.0"
-description = "Fee-first quant research toolkit: adapted formulaic alphas, TSMOM, microstructure observables, a no-lookahead backtest engine and an IC/decay research board -- stdlib core, synthetic demo data."
+version = "0.2.0"
+description = "Fee-first quant research toolkit: adapted formulaic alphas, TSMOM, microstructure observables, a no-lookahead backtest engine, an IC/decay research board and a deterministic closed-loop factor search with a local judge -- stdlib core, synthetic demo data."
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.11"

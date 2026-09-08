@@ -71,6 +71,19 @@ header.bar{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--p
 .btn{display:inline-block;padding:8px 15px;border-radius:9px;border:1px solid var(--border-strong);background:var(--panel);color:var(--ink);text-decoration:none;font-weight:600;font-size:13.5px}
 .btn:hover{background:var(--panel-3)} .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
 .pipcmd{padding:7px 12px;border-radius:9px;background:var(--panel-3);font-size:12.5px;color:var(--ink)}
+.cred{margin:26px 0 0;max-width:640px}
+.cred img{display:block;width:100%;height:auto;border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow)}
+.cred figcaption{margin-top:9px;font-size:13px;line-height:1.5;color:var(--muted)}
+
+/* search tab */
+.curves{display:grid;grid-template-columns:1fr 1fr;gap:var(--gap);padding:12px 14px 6px}
+.curve .phead{padding:0 0 6px;border-bottom:0}
+.curve .chart svg{width:100%;height:auto;display:block}
+.chain{font-family:var(--mono);font-size:12px;line-height:1.8;padding:12px 16px;overflow-x:auto;white-space:nowrap}
+.chain .op{color:var(--muted);margin:0 8px}
+.chain .seed{color:var(--amber)}
+.badge.amber.v{color:var(--amber)}
+.ledger{font-size:12px;color:var(--muted);padding:8px 16px;border-top:1px solid var(--border)}
 
 /* panels, tables */
 .panel{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}

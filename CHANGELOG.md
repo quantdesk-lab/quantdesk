@@ -4,6 +4,54 @@ All notable changes to QuantDesk are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.2.0] - 2026-09-08
+
+The library learns from its own verdicts: a deterministic, stdlib-only
+closed-loop factor search with a local judge (`docs/SEARCH.md`).
+
+### Added
+
+- `quantdesk.search.expr`: expression trees over the alpha101 operator
+  library with a parse/print round trip in the registry's notation, a stable
+  `expr_id`, structural caps, and prefix determinism inherited from the
+  operators (asserted over random trees).
+- `quantdesk.search.designer`: a seeded mutation designer with five named
+  operators (`window_step`, `swap_op`, `wrap`, `subtree`, `crossover`) and a
+  per-family grammar sampler; out-of-cap proposals are reported, not repaired.
+- `quantdesk.search.bandit`: two-level Thompson sampling (family; deepen vs
+  widen) rewarded only by the null gate, rebuilt from archived verdicts.
+- `quantdesk.search.ledger`: the trial ledger and the max-of-N deflated null
+  threshold `kappa * z((1 + q^(1/N)) / 2) / sqrt(n - 1)`; the holdout p-value
+  with its Sidak adjustment.
+- `quantdesk.search.gates`: a versioned gate set whose null scale `kappa` is
+  calibrated from the empirical null run and stamped on every verdict.
+- `quantdesk.search.walkforward`: purged and embargoed in-sample / holdout
+  split, block stability, and a touch-once holdout ledger that raises
+  `HoldoutSpent` in code.
+- `quantdesk.search.judge`, `archive`, `loop`, `cli`: refusal-first verdicts
+  (`refused | noise | redundant | unstable | candidate`), an append-only JSON
+  Lines archive with lineage and replay, the run itself, and
+  `python -m quantdesk.search` for your own lake.
+- `quantdesk.demo.fixtures.planted_bars`: a synthetic series with a planted
+  AR(1) one-bar mean reversion for the search demo.
+- `quantdesk.research.null_calibration` now emits per-walk `samples`.
+- Site: a Search tab (best-so-far |IC| against the rising null bar on a random
+  walk and on the planted series, every verdict, the lineage of the top
+  finalist, bandit posteriors, the single holdout touch, the cost at which the
+  edge dies) built from `site/data/search.json`; the sibling loop's Gold-level
+  platform certificate on the home page (README, "Factor mining").
+- Docs: `docs/SEARCH.md`; `docs/HONESTY.md` rule 14 (multiple testing is
+  deflated); `docs/ROADMAP.md` no longer lists the search loop or the trial
+  ledger as unbuilt.
+
+### Changed
+
+- The README's "not built" paragraph about the local-judge loop is replaced by
+  the loop.
+- `docs/ROADMAP.md`: the walk-forward item shrinks to what remains unbuilt
+  (rolling multi-fold evaluation for fitted models, deflated Sharpe on the
+  fee-after backtest, seed and start-date perturbation).
+
 ## [0.1.0] - 2026-09-03
 
 Initial public release.

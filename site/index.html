@@ -17,6 +17,7 @@
       <a class="tab" href="#home" data-i18n="nav_home">Home</a>
       <a class="tab" href="#explorer" data-i18n="nav_explorer">Explorer</a>
       <a class="tab" href="#backtest" data-i18n="nav_backtest">Backtest</a>
+      <a class="tab" href="#search" data-i18n="nav_search">Search</a>
       <a class="tab" href="#honesty" data-i18n="nav_honesty">Honesty</a>
       <a class="tab" href="#method" data-i18n="nav_method">Method</a>
     </nav>
@@ -38,6 +39,10 @@
         <a class="btn" href="https://github.com/quantdesk-lab/quantdesk" rel="noopener">GitHub</a>
         <code class="pipcmd">pip install git+https://github.com/quantdesk-lab/quantdesk</code>
       </div>
+      <figure class="cred">
+        <a href="https://github.com/Charlesdingd/alpha-evolve-loop" rel="noopener"><img src="./assets/worldquant_brain_gold.jpg" alt="WorldQuant BRAIN certificate: Gold level in the WorldQuant Challenge" width="960" height="529" loading="lazy"></a>
+        <figcaption data-i18n="cred_caption">The agentic half has already reached Gold level in the WorldQuant Challenge.</figcaption>
+      </figure>
     </div>
     <div class="sec"><span class="tag">1</span><span data-i18n="home_board_title">Factor board</span><span class="rule"></span><span class="tag mono" id="homeBoardSym">SYN-1</span></div>
     <div id="homeBoard" class="board"><div class="empty" data-i18n="loading">Loading</div></div>
@@ -74,6 +79,21 @@
     <section class="panel" id="btTickets"><div class="empty" data-i18n="loading">Loading</div></section>
   </section>
 
+  <!-- ================= SEARCH ================= -->
+  <section class="view" id="view-search" aria-labelledby="h-search">
+    <div class="sec"><span class="tag">1</span><h2 id="h-search" data-i18n="search_title">Closed-loop factor search</h2><span class="rule"></span><span class="tag" data-i18n="search_tag">a seeded mutation designer, judged by the library's own gates; no language model</span></div>
+    <div id="searchNote"></div>
+    <section class="panel" style="margin-top:var(--gap)"><div class="phead"><h3 data-i18n="search_curves_title">Best in-sample |IC| against the deflated null bar</h3></div><div id="searchCurves"><div class="empty" data-i18n="loading">Loading</div></div></section>
+    <div class="sec"><span class="tag">2</span><span data-i18n="search_holdout_title">Holdout: touched once</span><span class="rule"></span></div>
+    <section class="panel" id="searchHoldout"><div class="empty" data-i18n="loading">Loading</div></section>
+    <div class="sec"><span class="tag">3</span><span data-i18n="search_table_title">Every proposal, every verdict</span><span class="rule"></span><div class="seg" id="searchSymSeg" aria-label="Series"></div></div>
+    <section class="panel" id="searchTable"><div class="empty" data-i18n="loading">Loading</div></section>
+    <div class="grid2">
+      <section class="panel"><div class="phead"><h3 data-i18n="search_lineage_title">Lineage of the top finalist</h3></div><div id="searchLineage"></div></section>
+      <section class="panel"><div class="phead"><h3 data-i18n="search_bandit_title">Bandit posterior mean by family (per generation)</h3></div><div id="searchBandit"></div></section>
+    </div>
+  </section>
+
   <!-- ================= HONESTY ================= -->
   <section class="view" id="view-honesty" aria-labelledby="h-honesty">
     <div class="sec"><span class="tag">1</span><h2 id="h-honesty" data-i18n="hon_null_title">Empirical null</h2><span class="rule"></span><span class="tag mono" id="nullMeta"></span></div>
@@ -96,7 +116,7 @@
 
 <footer class="foot">
   <div class="foot-in">
-    <span>QuantDesk 0.1.0 &middot; MIT</span>
+    <span>QuantDesk 0.2.0 &middot; MIT</span>
     <a href="https://github.com/quantdesk-lab/quantdesk" rel="noopener">GitHub</a>
     <a href="https://github.com/Charlesdingd/alpha-evolve-loop" rel="noopener">alpha-evolve-loop</a>
     <a href="https://github.com/quantdesk-lab/quantdesk/tree/main/docs" rel="noopener" data-i18n="foot_docs">Docs</a>

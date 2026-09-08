@@ -268,7 +268,9 @@ Alpha101 entries that have no cross-sectional operator).
   number  = {5},
   pages   = {94--107},
   year    = {2014},
-  note    = {Why trial counts belong beside every reported Sharpe.}
+  note    = {Why trial counts belong beside every reported Sharpe. The search
+             loop deflates at the IC level (quantdesk.search.ledger); a
+             deflated Sharpe on the fee-after backtest remains a roadmap item.}
 }
 
 @book{lopezdeprado2018advances,
@@ -276,7 +278,35 @@ Alpha101 entries that have no cross-sectional operator).
   author    = {Lopez de Prado, Marcos},
   publisher = {Wiley},
   year      = {2018},
-  note      = {Purged and embargoed cross-validation (roadmap item).}
+  note      = {Purging and embargo between the in-sample rows and the holdout
+             (quantdesk.search.walkforward); rolling multi-fold CV for fitted
+             models remains a roadmap item.}
+}
+
+@article{sidak1967rectangular,
+  title   = {Rectangular Confidence Regions for the Means of Multivariate
+             Normal Distributions},
+  author  = {Sidak, Zbynek},
+  journal = {Journal of the American Statistical Association},
+  volume  = {62},
+  number  = {318},
+  pages   = {626--633},
+  year    = {1967},
+  note    = {The max-of-N (family-wise) null threshold that rises with the
+             trial count: quantile q^(1/N) (quantdesk.search.ledger).}
+}
+
+@article{thompson1933likelihood,
+  title   = {On the Likelihood that One Unknown Probability Exceeds Another in
+             View of the Evidence of Two Samples},
+  author  = {Thompson, William R.},
+  journal = {Biometrika},
+  volume  = {25},
+  number  = {3--4},
+  pages   = {285--294},
+  year    = {1933},
+  note    = {Thompson sampling: the two-level search policy in
+             quantdesk.search.bandit.}
 }
 ```
 

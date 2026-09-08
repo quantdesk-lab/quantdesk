@@ -1,6 +1,6 @@
 /* QuantDesk site. Vanilla JS, zero external scripts.
- * Loads ./data/{build,board,backtest,null}.json, all produced by
- * scripts/build_site.py from SYNTHETIC fixtures, and renders five hash-routed
+ * Loads ./data/{build,board,backtest,search,null}.json, all produced by
+ * scripts/build_site.py from SYNTHETIC fixtures, and renders six hash-routed
  * sections. Every renderer tolerates {ok:false, error} payloads and nulls. */
 "use strict";
 
@@ -8,11 +8,12 @@
 const I18N = {
   en: {
     tagline: "agentic factor mining and strategy research, with honesty gates",
-    nav_home: "Home", nav_explorer: "Explorer", nav_backtest: "Backtest", nav_honesty: "Honesty", nav_method: "Method",
+    nav_home: "Home", nav_explorer: "Explorer", nav_backtest: "Backtest", nav_search: "Search", nav_honesty: "Honesty", nav_method: "Method",
     badge_synthetic: "synthetic data", loading: "Loading", unavailable: "Unavailable:",
     hero_title: "Agents propose. Gates decide.",
-    hero_lede: "QuantDesk is an agentic factor-mining and quant-strategy research stack. This page runs its deterministic half: a stdlib-only Python library that evaluates 19 adapted Alpha101 expressions and a vol-scaled time-series momentum stack, refuses to print a Rank-IC or a correlation its sample cannot support, and explains every simulated backtest trade tick by tick with no model in the loop. The LLM alpha-search loop lives in the sibling repository alpha-evolve-loop. Everything here is computed at build time on synthetic geometric-Brownian-motion data: the pipeline is real, the numbers are deliberately meaningless.",
+    hero_lede: "QuantDesk is an agentic factor-mining and quant-strategy research stack. This page runs its deterministic half: a stdlib-only Python library that evaluates 19 adapted Alpha101 expressions and a vol-scaled time-series momentum stack, refuses to print a Rank-IC or a correlation its sample cannot support, explains every simulated backtest trade tick by tick, and runs a closed-loop factor search that judges its own proposals against a null bar that rises with every trial - with no model in the loop. The LLM-driven loop with an external judge lives in the sibling repository alpha-evolve-loop. Everything here is computed at build time on synthetic data: the pipeline is real, the numbers are deliberately meaningless.",
     cta_explore: "Open the factor explorer", home_board_title: "Factor board", home_build_title: "Build stamp",
+    cred_caption: "The agentic half has already reached Gold level in the WorldQuant Challenge: the sibling loop alpha-evolve-loop went from its first archived simulation (2026-08-17) to the WorldQuant BRAIN Gold certificate in about three weeks, over roughly 13,700 platform-scored simulations. The platform judged; the model never scored itself.",
     explorer_title: "Alpha explorer", explorer_table_title: "19 adapted alphas + 11 library rows", explorer_corr_title: "Correlation heatmap",
     bt_title: "Target-weight backtest", bt_chart_title: "Equity vs buy-and-hold", bt_cost_title: "Cost grid", bt_tickets_title: "Tickets",
     bt_tickets_tag: "every trade explained tick by tick, no language model",
@@ -41,6 +42,17 @@ const I18N = {
     v_standalone: "standalone-viable", v_feature: "feature-only", v_regime: "feature-only (regime)", v_risk: "feature-only (risk layer)", v_exec: "execution-layer",
     col_id: "id", col_name: "input", col_verdict: "verdict", col_why: "why",
     long: "long", flat: "flat",
+    search_title: "Closed-loop factor search", search_tag: "a seeded mutation designer, judged by the library's own gates; no language model",
+    search_curves_title: "Best in-sample |IC| against the deflated null bar", search_axis: "best |Rank-IC| so far vs the max-of-N null threshold",
+    search_best: "best |IC| so far", search_bar: "null bar (rises with trials)", search_last: "final:",
+    search_holdout_title: "Holdout: touched once", search_table_title: "Every proposal, every verdict",
+    search_lineage_title: "Lineage of the top finalist", search_bandit_title: "Bandit posterior mean by family (per generation)",
+    col_gen: "gen", col_family: "family", col_mode: "mode", col_op: "op", col_expr: "expression", col_absic: "|IC| in-sample",
+    col_bar: "bar", col_agree: "blocks agree", col_hold_ic: "holdout IC", col_p_adj: "p (adj.)", col_passed: "passed",
+    col_dies: "dies at (bps)", col_label: "fee-after", col_series: "series",
+    not_touched: "holdout not touched: no candidate cleared the final bar", yes: "yes", no: "no", no_lineage: "no finalist",
+    v_candidate: "candidate", v_noise: "noise", v_unstable: "unstable", v_redundant: "redundant", v_refused: "refused", v_rejected: "rejected", v_duplicate: "duplicate",
+    ledger_line: "trials {t} (the count the bar is deflated for) - duplicates {d}, refused {r}, rejected {j} do not raise it",
     gate_items: [
     "<b>Closed bars only.</b> The still-forming bar is dropped before any factor sees it (<code>_closed_bars</code>); a partial bar is intra-bar lookahead.",
     "<b>Rank-IC refused below {pairs} pairs.</b> n is always reported; the number is not.",
@@ -50,7 +62,7 @@ const I18N = {
     "<b>TSMOM needs 263 closed daily bars</b> (261-day lookback plus a two-day lag); short histories return <code>ok: false</code>, not a number.",
     "<b>Backtest timeline: decide on close(t), execute at open(t+1).</b> Per-fill fees and slippage, long/flat spot, cash can never go negative.",
     "<b>No-trade band</b> on target weights: a rebalance inside the band is skipped, so turnover is a first-class cost control.",
-    "<b>Trial count reported, not counted.</b> <code>trial_count</code> is printed beside every backtest; the demo carries 1 (one parameter set, no sweep). A trial ledger that counts attempts is roadmap, not built.",
+    "<b>Trial counts are counted and deflated.</b> <code>trial_count</code> is printed beside every backtest (the demo carries 1: one parameter set, no sweep). The search loop keeps a ledger of every scored candidate and the null bar a candidate must clear rises with that count; the holdout is touched once and a second touch raises in code.",
     "<b>Every ticket carries its reasoning</b> as a deterministic sentence generated from the numbers and the policy table; there is no language model anywhere in this library.",
     ],
     not_items: [
@@ -62,11 +74,12 @@ const I18N = {
     ],
   },
   zh: {
-    tagline: "带诚实闸门的 agentic 因子挖掘与策略研究", nav_home: "首页", nav_explorer: "浏览器", nav_backtest: "回测", nav_honesty: "诚实", nav_method: "方法",
+    tagline: "带诚实闸门的 agentic 因子挖掘与策略研究", nav_home: "首页", nav_explorer: "浏览器", nav_backtest: "回测", nav_search: "搜索", nav_honesty: "诚实", nav_method: "方法",
     badge_synthetic: "合成数据", loading: "加载中", unavailable: "不可用:",
     hero_title: "Agent 负责提出,闸门负责裁决。",
-    hero_lede: "QuantDesk 是一个 agentic 因子挖掘与量化策略研究栈。本页运行的是它的确定性一半:一个仅依赖标准库的 Python 因子库,评估 19 个时序化 Alpha101 表达式和波动率缩放的时序动量栈,拒绝打印样本不足以支撑的 Rank-IC 或相关性,并对每一笔模拟回测交易逐 tick 给出解释,过程中没有模型参与。LLM alpha 搜索循环在姊妹仓库 alpha-evolve-loop 中。本页所有数字都是构建时在合成几何布朗运动数据上算出的:流水线是真的,数字刻意无意义。",
+    hero_lede: "QuantDesk 是一个 agentic 因子挖掘与量化策略研究栈。本页运行的是它的确定性一半:一个仅依赖标准库的 Python 因子库,评估 19 个时序化 Alpha101 表达式和波动率缩放的时序动量栈,拒绝打印样本不足以支撑的 Rank-IC 或相关性,对每一笔模拟回测交易逐 tick 给出解释,并运行一个闭环因子搜索:用随试验次数上升的零假设门槛裁决自己提出的候选,全程没有模型参与。带外部裁判的 LLM 搜索循环在姊妹仓库 alpha-evolve-loop 中。本页所有数字都是构建时在合成数据上算出的:流水线是真的,数字刻意无意义。",
     cta_explore: "打开因子浏览器", home_board_title: "因子板", home_build_title: "构建戳",
+    cred_caption: "agentic 的那一半已经拿到 WorldQuant Challenge 的 Gold 等级:姊妹循环 alpha-evolve-loop 从第一条归档模拟(2026-08-17)到 WorldQuant BRAIN Gold 证书只用了约三周,期间约 13,700 次由平台打分的模拟。裁决来自平台,模型从不给自己打分。",
     explorer_title: "Alpha 浏览器", explorer_table_title: "19 个适配 alpha + 11 个库因子行", explorer_corr_title: "相关性热图",
     bt_title: "目标权重回测", bt_chart_title: "策略 vs 买入持有", bt_cost_title: "成本网格", bt_tickets_title: "交易单",
     bt_tickets_tag: "每笔交易逐 tick 解释,无语言模型",
@@ -95,6 +108,17 @@ const I18N = {
     v_standalone: "standalone-viable", v_feature: "仅作特征", v_regime: "仅作特征(regime)", v_risk: "仅作特征(风险层)", v_exec: "执行层",
     col_id: "编号", col_name: "输入", col_verdict: "裁决", col_why: "原因",
     long: "多头", flat: "空仓",
+    search_title: "闭环因子搜索", search_tag: "带种子的确定性变异设计者,由库自身的闸门裁决;无语言模型",
+    search_curves_title: "样本内最佳 |IC| 对比去偏零假设门槛", search_axis: "迄今最佳 |Rank-IC| 对比 max-of-N 零假设门槛",
+    search_best: "迄今最佳 |IC|", search_bar: "零假设门槛(随试验次数上升)", search_last: "最终:",
+    search_holdout_title: "留出集:只碰一次", search_table_title: "每一个候选,每一个裁决",
+    search_lineage_title: "最佳决选者的谱系", search_bandit_title: "各家族的 bandit 后验均值(逐代)",
+    col_gen: "代", col_family: "家族", col_mode: "模式", col_op: "算子", col_expr: "表达式", col_absic: "样本内 |IC|",
+    col_bar: "门槛", col_agree: "分块同号", col_hold_ic: "留出集 IC", col_p_adj: "p(校正)", col_passed: "通过",
+    col_dies: "失效成本(bps)", col_label: "扣费后", col_series: "序列",
+    not_touched: "留出集未触碰:没有候选越过最终门槛", yes: "是", no: "否", no_lineage: "无决选者",
+    v_candidate: "候选", v_noise: "噪声", v_unstable: "不稳定", v_redundant: "冗余", v_refused: "拒绝", v_rejected: "越界", v_duplicate: "重复",
+    ledger_line: "试验 {t} 次(门槛按此去偏)- 重复 {d}、拒绝 {r}、越界 {j} 不计入",
     gate_items: [
     "<b>只用已收盘 K 线。</b> 尚未收盘的 bar 在任何因子看到之前被丢弃(<code>_closed_bars</code>);部分 bar 是 bar 内前视。",
     "<b>Rank-IC 在 {pairs} 对以下拒绝打印。</b> n 总是报告,数值不报告。",
@@ -104,7 +128,7 @@ const I18N = {
     "<b>TSMOM 需要 263 根已收盘日线</b>(261 日回看加两日滞后);历史不足返回 <code>ok: false</code>,不返回数字。",
     "<b>回测时间线:在 close(t) 决策,在 open(t+1) 执行。</b> 逐笔费用与滑点,多头/空仓现货,现金永不为负。",
     "<b>目标权重的不交易带</b>:带内的再平衡被跳过,换手率因此是一等成本控制。",
-    "<b>试验次数只报告、不计数。</b> 每个回测旁打印 <code>trial_count</code>;本演示为 1(单一参数集,无扫描)。会计数尝试次数的试验台账是路线图项目,尚未构建。",
+    "<b>试验次数既计数也去偏。</b> 每个回测旁打印 <code>trial_count</code>(本演示为 1:单一参数集,无扫描)。搜索循环为每个被打分的候选记账,候选必须越过的零假设门槛随该计数上升;留出集只碰一次,第二次触碰在代码里直接抛错。",
     "<b>每张交易单携带其推理</b>:由数字和策略表生成的确定性句子;本库任何地方都没有语言模型。",
     ],
     not_items: [
@@ -149,7 +173,7 @@ function fmtTs(ts) {
 }
 const failBox = (d, what) => `<div class="empty">${esc(t("unavailable"))} ${esc(what)}<div class="err">${esc((d && d.error) || "no payload")}</div></div>`;
 const GATES = { min_ic_pairs: 30, min_ic_eff: 8 };
-const DATA = { build: null, board: null, backtest: null, null: null, decisions: null };
+const DATA = { build: null, board: null, backtest: null, null: null, decisions: null, search: null };
 const EX = { sym: null, sortKey: "order", dir: 1 };
 const BT = { sym: null };
 
@@ -482,8 +506,75 @@ function renderMethod() {
   $("methodTable").innerHTML = `<table class="pt"><thead><tr><th>${esc(t("col_id"))}</th><th style="text-align:left">${esc(t("col_name"))}</th><th style="text-align:left">${esc(t("col_verdict"))}</th><th style="text-align:left">${esc(t("col_why"))}</th></tr></thead><tbody>${METHOD.map(([id, name, v, why]) => `<tr><td><b>${id}</b></td><td style="text-align:left;font-family:var(--sans)">${esc(name)}</td><td style="text-align:left"><span class="badge ${v === "v_standalone" ? "ok" : ""}">${esc(t(v))}</span></td><td class="sub" style="text-align:left;max-width:520px">${esc(why)}</td></tr>`).join("")}</tbody></table>`;
 }
 
+/* ---------- SEARCH ---------- */
+const SR = { sym: null };
+const VERDICT_CLASS = { candidate: "ok", refused: "refused", unstable: "amber", redundant: "amber" };
+const verdictBadge = v => `<span class="badge ${VERDICT_CLASS[v] || ""}">${esc(t("v_" + v))}</span>`;
+function searchCurve(block) {
+  const pts = (block.best_so_far || []).filter(b => isNum(b.threshold_ref));
+  if (!pts.length) return `<div class="empty">${DASH}</div>`;
+  const W = 420, H = 170, L = 40, R = 12, T = 12, B = 24, iw = W - L - R, ih = H - T - B;
+  const ymax = Math.max(0.05, ...pts.map(b => Math.max(b.abs_ic || 0, b.threshold_ref || 0))) * 1.15;
+  const X = i => L + (pts.length > 1 ? i / (pts.length - 1) : 0.5) * iw;
+  const Y = v => T + ih - Math.max(0, Math.min(1, v / ymax)) * ih;
+  const line = (key, style) => {
+    const seg = pts.map((b, i) => isNum(b[key]) ? `${X(i).toFixed(1)},${Y(b[key]).toFixed(1)}` : null).filter(Boolean);
+    return seg.length > 1 ? `<polyline points="${seg.join(" ")}" fill="none" style="${style}" stroke-width="1.6" stroke-linejoin="round"/>` : "";
+  };
+  const yt = [0, 0.05, 0.1, 0.15, 0.2, 0.3].filter(v => v <= ymax).map(v => `<line x1="${L}" x2="${W - R}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}" style="stroke:var(--border)" stroke-width="0.6"/><text class="axis" x="${L - 5}" y="${(Y(v) + 3).toFixed(1)}" text-anchor="end">${v.toFixed(2)}</text>`).join("");
+  const xt = pts.map((b, i) => `<text class="axis" x="${X(i).toFixed(1)}" y="${H - 7}" text-anchor="middle">${b.gen}</text>`).join("");
+  const dots = pts.map((b, i) => isNum(b.abs_ic) ? `<circle cx="${X(i).toFixed(1)}" cy="${Y(b.abs_ic).toFixed(1)}" r="2.4" style="fill:var(--accent)"><title>gen ${b.gen}: best |IC| ${sf(b.abs_ic, 4)} vs bar ${sf(b.threshold_ref, 4)} after ${b.n_trials} trials</title></circle>` : "").join("");
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(t("search_axis"))}">${yt}${xt}${line("threshold_ref", "stroke:var(--loss);stroke-dasharray:4 3")}${line("abs_ic", "stroke:var(--accent)")}${dots}</svg>`;
+}
+function renderSearch() {
+  const d = DATA.search, host = $("searchCurves");
+  const clear = () => ["searchHoldout", "searchTable", "searchLineage", "searchBandit"].forEach(id => { $(id).innerHTML = ""; });
+  if (!d || d.ok === false || !d.series || typeof d.series !== "object") { host.innerHTML = failBox(d, "search.json"); $("searchNote").innerHTML = ""; clear(); return; }
+  const names = Object.keys(d.series);
+  if (!SR.sym || !names.includes(SR.sym)) SR.sym = names[0];
+  buildSeg($("searchSymSeg"), names, SR.sym, n => { SR.sym = n; renderSearch(); });
+  $("searchNote").innerHTML = `<section class="panel disc"><p>${esc(d.note || "")}</p></section>`;
+  host.innerHTML = `<div class="curves">${names.map(n => {
+    const b = d.series[n];
+    if (!b || b.ok === false) return `<div>${failBox(b, n)}</div>`;
+    const last = (b.best_so_far || []).slice(-1)[0] || {};
+    return `<div class="curve"><div class="phead"><h3>${esc(n)} <span class="muted">${esc(b.kind || "")}</span></h3><span class="cnt">${esc(t("trials"))} ${b.trial_count ?? DASH}</span></div><div class="chart">${searchCurve(b)}</div><div class="legend"><span style="color:var(--accent)">${esc(t("search_best"))}</span><span style="color:var(--loss)">${esc(t("search_bar"))}</span><span>${esc(t("search_last"))} ${nf(last.abs_ic, 4)} vs ${nf(last.threshold_ref, 4)}</span></div></div>`;
+  }).join("")}</div>`;
+  // holdout across series
+  const hrows = names.map(n => {
+    const b = d.series[n]; if (!b || b.ok === false) return "";
+    const h = b.holdout || {};
+    if (!h.touched || !(h.results || []).length) return `<tr><td class="mono">${esc(n)}</td><td colspan="7" style="text-align:left" class="sub">${esc(t("not_touched"))}</td></tr>`;
+    return h.results.map((r, i) => { const fa = r.fee_after || {}; return `<tr><td class="mono">${i === 0 ? esc(n) : ""}</td><td class="mono" style="text-align:left">${esc(r.text)}</td><td>${nf(r.ic, 4)}</td><td>${r.n ?? DASH}</td><td>${nf(r.p_adj, 4)} <span class="faint">(k=${h.k})</span></td><td><span class="badge ${r.passed ? "ok" : "refused"}">${esc(r.passed ? t("yes") : t("no"))}</span></td><td>${fa.dies_at_bps == null ? DASH : nf(fa.dies_at_bps, 0)}</td><td>${esc(fa.label || DASH)}</td></tr>`; }).join("");
+  }).join("");
+  $("searchHoldout").innerHTML = `<div class="tbl-scroll"><table class="pt"><thead><tr><th>${esc(t("col_series"))}</th><th style="text-align:left">${esc(t("col_expr"))}</th><th>${esc(t("col_hold_ic"))}</th><th>n</th><th>${esc(t("col_p_adj"))}</th><th>${esc(t("col_passed"))}</th><th>${esc(t("col_dies"))}</th><th>${esc(t("col_label"))}</th></tr></thead><tbody>${hrows}</tbody></table></div>`;
+  // per-series detail
+  const b = d.series[SR.sym];
+  if (!b || b.ok === false) { $("searchTable").innerHTML = failBox(b, SR.sym); $("searchLineage").innerHTML = ""; $("searchBandit").innerHTML = ""; return; }
+  const recs = (b.records || []).slice().sort((x, y) => (x.generation ?? 0) - (y.generation ?? 0));
+  const agree = r => r.sign_agreement ? `${r.sign_agreement.agree}/${r.sign_agreement.printable}` : DASH;
+  $("searchTable").innerHTML = `<div class="tbl-scroll"><table class="pt"><thead><tr><th>${esc(t("col_gen"))}</th><th style="text-align:left">${esc(t("col_family"))}</th><th>${esc(t("col_mode"))}</th><th>${esc(t("col_op"))}</th><th style="text-align:left">${esc(t("col_expr"))}</th><th>${esc(t("col_absic"))}</th><th>${esc(t("col_bar"))}</th><th>${esc(t("col_agree"))}</th><th>${esc(t("col_turn"))}</th><th>${esc(t("col_verdict"))}</th></tr></thead><tbody>${recs.map(r => {
+    const ins = r.insample || {};
+    return `<tr><td>${r.generation ?? DASH}</td><td style="text-align:left;font-family:var(--sans)">${esc(r.family || DASH)}</td><td class="sub">${esc(r.mode || DASH)}${r.mode_fallback ? "*" : ""}</td><td class="sub">${esc(r.op || DASH)}</td><td class="mono" style="text-align:left">${esc(r.text || DASH)}</td><td>${nf(ins.abs_ic, 4)}</td><td>${nf(ins.threshold, 4)}</td><td>${agree(r)}</td><td>${nf(r.turnover_proxy, 3)}</td><td>${verdictBadge(r.verdict || "refused")}</td></tr>`;
+  }).join("")}</tbody></table></div><div class="ledger">${esc(t("ledger_line").replace("{t}", b.ledger ? b.ledger.n_trials : DASH).replace("{d}", b.ledger ? b.ledger.n_duplicates : DASH).replace("{r}", b.ledger ? b.ledger.n_refused : DASH).replace("{j}", b.ledger ? b.ledger.n_rejected : DASH))}</div>`;
+  // lineage of the top finalist
+  const top = ((b.holdout || {}).results || [])[0];
+  if (!top) { $("searchLineage").innerHTML = `<div class="empty">${esc(t("no_lineage"))}</div>`; }
+  else {
+    const byId = {}; (b.records || []).forEach(r => { if (r.expr_id && !byId[r.expr_id]) byId[r.expr_id] = r; });
+    const chain = []; let cur = byId[top.expr_id]; const seen = new Set();
+    while (cur && !seen.has(cur.expr_id)) { seen.add(cur.expr_id); chain.push(cur); cur = (cur.parents && cur.parents.length) ? byId[cur.parents[0]] : null; }
+    chain.reverse();
+    $("searchLineage").innerHTML = `<div class="chain">${chain.map((r, i) => `${i ? `<span class="op">-[${esc(r.op || "?")}]-&gt;</span>` : ""}<span class="${i ? "" : "seed"}" title="gen ${r.generation} · |IC| ${nf((r.insample || {}).abs_ic, 4)} · ${esc(r.verdict || "")}">${esc(r.text)}</span>`).join("")}</div>`;
+  }
+  // bandit posterior means by family per generation
+  const gens = b.generations || [];
+  const fams = gens.length ? Object.keys(gens[0].bandit.families) : [];
+  $("searchBandit").innerHTML = `<div class="tbl-scroll"><table class="pt"><thead><tr><th style="text-align:left">${esc(t("col_family"))}</th>${gens.map(g => `<th>${g.gen}</th>`).join("")}</tr></thead><tbody>${fams.map(f => `<tr><td style="text-align:left;font-family:var(--sans)">${esc(f)}</td>${gens.map(g => { const a = g.bandit.families[f] || {}; return `<td title="n ${a.n}">${nf(a.mean, 2)}</td>`; }).join("")}</tr>`).join("")}</tbody></table></div>`;
+}
+
 /* ---------- router, i18n, theme, boot ---------- */
-const VIEWS = ["home", "explorer", "backtest", "honesty", "method"];
+const VIEWS = ["home", "explorer", "backtest", "search", "honesty", "method"];
 function applyHash() {
   let h = (location.hash || "#home").slice(1);
   if (!VIEWS.includes(h)) h = "home";
@@ -496,7 +587,7 @@ function applyI18n() {
   document.querySelectorAll("[data-i18n]").forEach(e => { e.textContent = t(e.dataset.i18n); });
   $("langBtn").textContent = LANG === "en" ? "ZH" : "EN";
 }
-function renderAll() { applyI18n(); renderHome(); renderExplorer(); renderBacktest(); renderHonesty(); renderMethod(); }
+function renderAll() { applyI18n(); renderHome(); renderExplorer(); renderBacktest(); renderSearch(); renderHonesty(); renderMethod(); }
 const store = { get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* private mode */ } } };
 $("themeBtn").addEventListener("click", () => {
   const cur = document.documentElement.getAttribute("data-theme") || (matchMedia("(prefers-color-scheme:dark)").matches ? "dark" : "light");
@@ -525,6 +616,6 @@ window.addEventListener("hashchange", applyHash);
     DATA.build = build; DATA.board = board; DATA.null = nul;
     if (build && build.gates) { GATES.min_ic_pairs = build.gates.min_ic_pairs ?? GATES.min_ic_pairs; GATES.min_ic_eff = build.gates.min_ic_eff ?? GATES.min_ic_eff; }
     renderAll();
-    return loadJson("backtest");
-  }).then(backtest => { DATA.backtest = backtest; renderBacktest(); });
+    return Promise.all([loadJson("backtest"), loadJson("search")]);
+  }).then(([backtest, search]) => { DATA.backtest = backtest; DATA.search = search; renderBacktest(); renderSearch(); });
 })();

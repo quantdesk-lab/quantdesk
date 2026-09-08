@@ -17,6 +17,7 @@ from quantdesk.demo.fixtures import (
     SyntheticClient,
     bar_seconds_for,
     gbm_bars,
+    planted_bars,
     split_ohlcv,
     synthetic_book,
     synthetic_trades,
@@ -230,3 +231,59 @@ def test_write_synthetic_lake_round_trips_through_reader(tmp_path):
 
 def test_default_start_is_the_synthetic_epoch():
     assert gbm_bars(1)[0][0] == DEFAULT_START_TS
+
+
+# -------------------------------------------------------------- planted_bars --
+def _h1_rank_ic_of_neg_delta(rows):
+    """Time-series Rank-IC of ``-1 * delta(close, 1)`` at horizon 1 through the
+    board's own gate-protected path (the search loop's judge uses the same)."""
+    from quantdesk.factors.alpha101 import delta
+    from quantdesk.research.board import ic_for
+
+    closes = split_ohlcv(rows)["c"]
+    series = [None if v is None else -v for v in delta(closes, 1)]
+    return ic_for(series, closes, 1)
+
+
+def test_planted_bars_phi_zero_is_gbm_bit_for_bit():
+    assert planted_bars(300, seed=4, phi=0.0, sigma=0.02) == gbm_bars(300, seed=4, sigma=0.02)
+    assert planted_bars(0) == []
+
+
+def test_planted_bars_are_well_formed_and_deterministic():
+    rows = planted_bars(400, seed=9)
+    prev_close = None
+    for ts, o, h, l, c, v in rows:
+        assert o > 0 and h > 0 and l > 0 and c > 0 and v > 0
+        assert h >= max(o, c) and l <= min(o, c)
+        if prev_close is not None:
+            assert o == prev_close
+        prev_close = c
+    assert rows == planted_bars(400, seed=9)
+    assert rows != planted_bars(400, seed=10)
+    assert planted_bars(50, seed=9) == rows[:50]
+    assert rows != gbm_bars(400, seed=9, sigma=0.01)  # phi != 0 changes the path
+
+
+def test_planted_bars_plant_a_one_bar_mean_reversion():
+    # phi = -0.12 -> Rank-IC of -delta(close, 1) about 0.93 * |phi| ~ 0.11 at
+    # horizon 1 (sd ~ 1/sqrt(n-1) ~ 0.02 at 2400 bars); the GBM twin sits at 0.
+    r = _h1_rank_ic_of_neg_delta(planted_bars(2400, seed=7))
+    assert r["ic"] is not None and 0.06 <= r["ic"] <= 0.16, r
+    g = _h1_rank_ic_of_neg_delta(gbm_bars(2400, seed=7, sigma=0.01))
+    assert g["ic"] is not None and abs(g["ic"]) < 0.06, g
+    # the planted effect is one bar long: at horizon 24 it is inside the noise
+    from quantdesk.factors.alpha101 import delta
+    from quantdesk.research.board import ic_for
+
+    closes = split_ohlcv(planted_bars(2400, seed=7))["c"]
+    series = [None if v is None else -v for v in delta(closes, 1)]
+    assert abs(ic_for(series, closes, 24)["ic"] or 0.0) < 0.06
+
+
+def test_planted_bars_rejects_bad_args():
+    for bad in ({"n": -1}, {"s0": 0.0}, {"sigma": -0.1}, {"phi": 1.0}, {"phi": -1.5}):
+        kw = {"n": 5, **bad}
+        n = kw.pop("n")
+        with pytest.raises(ValueError):
+            planted_bars(n, **kw)

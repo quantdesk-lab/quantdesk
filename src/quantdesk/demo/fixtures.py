@@ -9,6 +9,8 @@ be exercised end to end, deterministically, with zero network access.
 Shapes produced (all oldest -> newest):
 
 - ``gbm_bars``          numeric candle rows ``[ts, o, h, l, c, v]``
+- ``planted_bars``      the same rows with a planted AR(1) return component
+                        (a known one-bar mean reversion for the search loop)
 - ``SyntheticClient``   the injected-client surface the research board expects
                         (``get_candles(symbol, granularity, limit)`` returning
                         STRING candle rows with a still-forming last bar)
@@ -95,17 +97,72 @@ def gbm_bars(
     prev_close = float(s0)
     for i in range(n):
         close = prev_close * math.exp(mu + sigma * rng.gauss(0.0, 1.0))
-        open_ = prev_close
-        body_hi, body_lo = max(open_, close), min(open_, close)
-        wick = 0.25 * sigma if sigma > 0 else 0.001
-        high = body_hi * (1.0 + wick * abs(rng.gauss(0.0, 1.0)))
-        low = body_lo * (1.0 - wick * abs(rng.gauss(0.0, 1.0)))
-        low = max(low, 1e-9)
-        volume = 100.0 * math.exp(0.5 * rng.gauss(0.0, 1.0))
-        rows.append([
-            float(start_ts + i * bar_seconds), open_, high, low, close, volume,
-        ])
+        rows.append([float(start_ts + i * bar_seconds), *_dress_bar(rng, prev_close, close, sigma)])
         prev_close = close
+    return rows
+
+
+def _dress_bar(
+    rng: random.Random, prev_close: float, close: float, sigma: float
+) -> tuple[float, float, float, float, float]:
+    """``(open, high, low, close, volume)`` around a close: the open is the
+    previous close, the high/low straddle the body with a small lognormal
+    wick, volume is lognormal around 100 units. Shared by ``gbm_bars`` and
+    ``planted_bars`` so the two fixtures differ only in their close path
+    (three RNG draws per bar, in this order)."""
+    open_ = prev_close
+    body_hi, body_lo = max(open_, close), min(open_, close)
+    wick = 0.25 * sigma if sigma > 0 else 0.001
+    high = body_hi * (1.0 + wick * abs(rng.gauss(0.0, 1.0)))
+    low = body_lo * (1.0 - wick * abs(rng.gauss(0.0, 1.0)))
+    low = max(low, 1e-9)
+    volume = 100.0 * math.exp(0.5 * rng.gauss(0.0, 1.0))
+    return open_, high, low, close, volume
+
+
+def planted_bars(
+    n: int,
+    *,
+    seed: int = 7,
+    start_ts: float = DEFAULT_START_TS,
+    bar_seconds: int = 3600,
+    s0: float = 100.0,
+    mu: float = 0.0,
+    sigma: float = 0.01,
+    phi: float = -0.12,
+) -> list[list[float]]:
+    """``n`` synthetic OHLCV rows whose log returns carry a PLANTED AR(1)
+    component: ``r_t = phi * r_{t-1} + sigma * sqrt(1 - phi^2) * z_t``,
+    ``c_t = c_{t-1} * exp(mu + r_t)``. The innovation is scaled so the
+    unconditional return variance equals the ``gbm_bars`` twin's; with
+    ``phi = 0.0`` the output is bit-identical to ``gbm_bars`` for the same
+    arguments (same RNG draw order, same candle dressing).
+
+    Purpose: a synthetic series on which a one-bar mean-reversion expression
+    has real, known predictive rank correlation (about ``0.93 * |phi|`` at
+    horizon 1, decaying within a few bars) so the search loop can be shown
+    recovering planted structure while its random-walk twin yields refusal.
+    Illustrative data only; no relationship to any real asset. ``|phi| < 1``.
+    """
+    if n < 0:
+        raise ValueError("n must be >= 0")
+    if s0 <= 0:
+        raise ValueError("s0 must be > 0")
+    if sigma < 0:
+        raise ValueError("sigma must be >= 0")
+    if not abs(phi) < 1.0:
+        raise ValueError("phi must satisfy |phi| < 1")
+    rng = random.Random(seed)
+    rows: list[list[float]] = []
+    prev_close = float(s0)
+    innov = sigma * math.sqrt(1.0 - phi * phi)
+    r_prev = 0.0
+    for i in range(n):
+        r = phi * r_prev + innov * rng.gauss(0.0, 1.0)
+        close = prev_close * math.exp(mu + r)
+        rows.append([float(start_ts + i * bar_seconds), *_dress_bar(rng, prev_close, close, sigma)])
+        prev_close = close
+        r_prev = r
     return rows
 
 

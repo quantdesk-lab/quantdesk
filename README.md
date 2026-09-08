@@ -1,26 +1,30 @@
 # QuantDesk
 
-**A quant research library that refuses to print numbers it cannot support.**
+**A quant research library that refuses to print numbers it cannot support -
+and a closed loop that learns from its own refusals.**
 Pure standard-library Python: 19 adapted formulaic alphas, vol-scaled
 time-series momentum, microstructure observables, a Rank-IC research board
-with refusal gates, and a fee-first event backtester that explains every
-simulated trade tick by tick - with no language model anywhere in the loop.
-Nothing here trades.
+with refusal gates, a fee-first event backtester that explains every
+simulated trade tick by tick, and a deterministic factor-search loop whose
+judge is the library itself and whose null bar rises with every trial - with
+no language model anywhere in the loop. Nothing here trades.
 
 [![CI](https://github.com/quantdesk-lab/quantdesk/actions/workflows/ci.yml/badge.svg)](https://github.com/quantdesk-lab/quantdesk/actions/workflows/ci.yml)
 [![Pages](https://github.com/quantdesk-lab/quantdesk/actions/workflows/pages.yml/badge.svg)](https://quantdesk-lab.github.io/)
 ![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue)
 ![Dependencies](https://img.shields.io/badge/dependencies-none-blue)
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
-![Tests](https://img.shields.io/badge/tests-271%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-335%20passing-brightgreen)
 
 [![QuantDesk demo: factor board with refusal gates](docs/assets/hero.png)](https://quantdesk-lab.github.io/)
 
 **Live demo: <https://quantdesk-lab.github.io/>** - the factor board above,
-an alpha explorer, a cost-grid backtest with per-tick trade tickets, and an
-empirical null band. Every figure is computed at build time on synthetic
-geometric-Brownian-motion bars; the `REFUSED` badges are the library
-declining to report an IC whose effective sample is too small.
+an alpha explorer, a cost-grid backtest with per-tick trade tickets, an
+empirical null band, and a **Search** tab where the loop's best in-sample
+|IC| is drawn against the deflated null bar on a random walk (it refuses)
+and on a series with a planted mean reversion (it recovers it). Every figure
+is computed at build time on synthetic bars; the `REFUSED` badges are the
+library declining to report an IC whose effective sample is too small.
 
 ## Thirty seconds
 
@@ -59,6 +63,14 @@ QuantDesk is a portfolio project. The things it is meant to show:
   and effective sample, an empirical null band from reseeded random walks,
   fee-after verdicts, trial counts printed beside results, and a
   `docs/HONESTY.md` that every number in the repository is held to.
+- **A loop that learns from its own verdicts, with no model.** A seeded
+  mutation designer proposes expressions over the operator library, the
+  board's own Rank-IC gates judge them against a null bar that rises with
+  the trial count (Sidak max-of-N, calibrated from the null run), every
+  verdict is archived with its lineage, a Thompson-sampling bandit is
+  rewarded only by the gate, and the holdout is touched once - a second
+  touch raises in code. On a random walk it converges to refusal; on a
+  planted signal it recovers the structure (`docs/SEARCH.md`).
 - **No-lookahead proven by tests.** Prefix-determinism is asserted for every
   alpha (`fn(x[:t+1])[t]` equals `fn(x)[t]`), the still-forming bar is
   dropped before any factor sees it, decisions on close(*t*) fill at
@@ -168,22 +180,52 @@ QuantDesk is a portfolio project. The things it is meant to show:
   position 0.00 -> buy to 0.60 (band 0.10)."* No model is consulted anywhere
   in this repository.
 
+**Closed-loop search, with a local judge** (`src/quantdesk/search/`)
+
+- **Expression trees** over the existing 23-operator library, printed and
+  parsed in the registry's own notation (`-1 * delta(close, 1)`), with a
+  stable `expr_id`; evaluation dispatches to the alpha101 functions, so the
+  no-lookahead property is inherited and re-asserted over random trees.
+- A **seeded mutation designer** with five named operators (`window_step`,
+  `swap_op`, `wrap`, `subtree`, `crossover`) and a per-family grammar for
+  fresh samples; proposals outside the caps are recorded as rejections, not
+  repaired.
+- A **two-level Thompson-sampling bandit** (which family; deepen archived
+  parents or widen into fresh samples) rewarded only by the null gate and
+  rebuilt from the archive on resume.
+- A **trial ledger** and the **deflated null bar**
+  `kappa * z((1 + 0.95^(1/N)) / 2) / sqrt(n - 1)`: it rises with every scored
+  trial, `kappa` is calibrated from the empirical null run and versioned,
+  and every verdict stamps the count and the bar it faced.
+- A **purged, embargoed in-sample / holdout split**, block sign-stability,
+  and a **touch-once holdout ledger** that raises `HoldoutSpent` on a second
+  touch; the top finalists get one holdout IC with a Sidak-adjusted p-value
+  and the fee-after cost grid on holdout bars.
+- An **append-only archive** (JSON Lines) that reconstructs any survivor's
+  lineage and replays every verdict; `python -m quantdesk.search` runs the
+  loop on your own lake and resumes an archive.
+
 **Synthetic fixtures** (`src/quantdesk/demo/fixtures.py`)
 
 - Seeded geometric-Brownian-motion OHLCV bars for `SYN-1..3`, the only data
   the demo site ever sees. The fixture clock is pinned, so a rebuild of the
   site is byte-identical.
+- `planted_bars`: the same generator with a planted AR(1) component on log
+  returns (a known one-bar mean reversion), so the search loop can be shown
+  recovering structure that is known to be there while its random-walk twin
+  yields refusal.
 
 ## Quickstart
 
 ```bash
 git clone https://github.com/quantdesk-lab/quantdesk
 cd quantdesk
-pytest -q                                          # 271 tests, no network, no install needed (src layout is on pytest's path)
+pytest -q                                          # 335 tests, no network, no install needed (src layout is on pytest's path)
 
 python -m venv .venv && . .venv/bin/activate     # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"                            # pytest, pyarrow, ruff
 python -m quantdesk.backtest --help                # bring your own 1m candles
+python -m quantdesk.search --help                  # the closed-loop search on your own lake
 python scripts/build_site.py --out site/data       # rebuild the demo JSON from synthetic bars
 ```
 
@@ -242,18 +284,59 @@ ideas) chooses what to try next, and every verdict is archived verbatim so
 the lineage of each expression can be reconstructed from the archive alone.
 The model never scores itself; the code decides what counts as evidence.
 
-This repository is the deterministic counterpart: the factor library, the
-no-lookahead evaluator and the fee-aware backtester that such a loop needs
-as a local judge. A loop that runs end to end on this package alone, with
-the Rank-IC gates in `quantdesk.research` as the judge, is on the roadmap
-and is **not built**.
+[![WorldQuant BRAIN certificate: Gold level in the WorldQuant Challenge](docs/assets/worldquant_brain_gold.jpg)](https://github.com/Charlesdingd/alpha-evolve-loop)
+
+That loop is what reached **Gold level in the WorldQuant Challenge** (the
+WorldQuant BRAIN certificate above): from its first archived simulation on
+2026-08-17 to the Gold certificate in about three weeks, over roughly 13,700
+completed platform simulations recorded in the loop's own archive. Every one
+of those verdicts came from the platform's simulator, not from the model.
+
+## Self-improving: the search loop in this package
+
+This repository is the deterministic counterpart, and since 0.2.0 it closes
+the loop on its own: `quantdesk.search` runs end to end on this package
+alone, with the Rank-IC gates in `quantdesk.research` as the judge and no
+model anywhere.
+
+```python
+from quantdesk.demo.fixtures import planted_bars
+from quantdesk.search.loop import run_search
+
+out = run_search(planted_bars(2400, seed=9), symbol="PLANTED-1", seed=9,
+                 generations=8, per_generation=6)
+out["ledger"]["n_trials"]            # every scored candidate counts; the null bar rose with each
+out["best_so_far"][-1]               # {'abs_ic': 0.11.., 'threshold_ref': 0.07.., 'n_trials': ..}
+out["holdout"]["results"][0]         # one touch: ic, n, p, p_adj, passed, fee_after.dies_at_bps
+```
+
+What "learns" means here, precisely: the state that improves across runs is
+the **archive**. Each proposal is scored once, its verdict (`refused | noise
+| redundant | unstable | candidate`) is appended with its parents and the
+mutation that produced it, the bandit's posteriors are rebuilt from those
+verdicts, and the designer's next proposals deepen the archived parents that
+cleared the bar. What keeps the loop honest: the bar it must clear is the
+Sidak max-of-N null threshold for the current trial count and the
+candidate's own pair count; the holdout is touched once, by the finalists
+that still clear the bar at the *final* count, and a second touch raises
+`HoldoutSpent`; the fee-after cost grid then reports the cost at which the
+edge dies.
+
+On the site's random walk the loop converges to refusal (the exporter's
+site contract fails the build otherwise). On the planted series it recovers
+a one-bar reversal whose single holdout touch passes and whose edge dies at
+about 10 bps per side, which is the honest answer for a one-hour signal.
+`docs/SEARCH.md` gives the arithmetic, the expected outcomes, the pass rate
+across seeds, and what is deliberately **not** claimed (no bandit convergence,
+no "alpha", no walk-forward cross-validation, no deflated Sharpe).
 
 ## Roadmap
 
 Labeled NOT BUILT in `docs/ROADMAP.md`: cross-sectional Rank-IC with breadth
-gates, walk-forward evaluation with purged cross-validation, market-
-residualized momentum, a platform-agnostic factor-search loop with a local
-judge, and in-browser recompute via Pyodide.
+gates, what remains of walk-forward evaluation (rolling multi-fold splits for
+fitted models, deflated Sharpe on the fee-after backtest, seed and start-date
+perturbation), market-residualized momentum, a language-model designer behind
+the search loop, and in-browser recompute via Pyodide.
 
 ## Layout
 
@@ -264,15 +347,17 @@ src/quantdesk/
   factors/           alpha101, tsmom, quant, microstructure, technical
   backtest/          config, types, metrics, engine, signals, lake_data, cli
   research/          board, microstructure_lake, tickets, null_calibration
+  search/            expr, designer, bandit, ledger, gates, walkforward, judge,
+                     archive, loop, cli (the closed-loop search; docs/SEARCH.md)
   reference/         cost_floor, grid, market_making
   lake/schemas.py    lake_v1 Arrow schemas (pyarrow lazy)
-  demo/fixtures.py   synthetic GBM bars
+  demo/fixtures.py   synthetic GBM bars and the planted-AR(1) series
 scripts/             build_site.py (demo JSON from synthetic bars), check_test_count.py
                      (README count vs the collector), scan_forbidden.py (generic
                      leak scanner: CJK, personal paths, secret shapes, artefacts)
 site/                static demo page + build-time JSON
-docs/                HONESTY, DATA, RESEARCH_DISCIPLINE, FACTOR_VERDICTS, ROADMAP
-tests/               271 tests; pure-stdlib files run with no extras installed
+docs/                HONESTY, DATA, RESEARCH_DISCIPLINE, FACTOR_VERDICTS, SEARCH, ROADMAP
+tests/               335 tests; pure-stdlib files run with no extras installed
 ```
 
 ## Citing

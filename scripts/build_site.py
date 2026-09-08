@@ -139,6 +139,56 @@ def build_null(reseeds: int, bars: int, seed: int) -> dict[str, Any]:
     return null_ic_distribution(reseeds, bars, seed0=1000 + seed)
 
 
+# The closed-loop search runs on two synthetic hourly series: a seeded random
+# walk (the loop must converge to refusal) and a walk with a PLANTED one-bar
+# mean reversion (the loop must recover it). Both are labeled synthetic.
+SEARCH_BARS = 2400            # ~100 synthetic days; ~1870 in-sample pairs after the holdout and gap
+PLANTED_SEED = 9              # fixture seed of the planted series (tests/test_search_loop.py pins it)
+PLANTED_PHI = -0.12           # AR(1) on log returns: Rank-IC of -delta(close, 1) about 0.93 * |phi|
+SEARCH_GENERATIONS = 8
+SEARCH_PER_GENERATION = 6
+SEARCH_NOTE = (
+    "Two synthetic hourly series, computed at build time: WALK-1 is a seeded random walk "
+    "on which the loop should converge to refusal; PLANTED-1 carries a planted one-bar "
+    "mean reversion (AR(1) on log returns) that a reversal expression should recover. The "
+    "planted rank correlation is deliberately above the 0.02-0.05 register because a "
+    "real 0.04 needs thousands of pairs to clear a 50-trial deflated bar; docs/SEARCH.md "
+    "gives the arithmetic. No language model anywhere; nothing here is a recommendation."
+)
+
+
+def build_search(seed: int, null_doc: Any, generations: int, per_gen: int) -> dict[str, Any]:
+    from quantdesk.demo.fixtures import gbm_bars, planted_bars
+    from quantdesk.search.gates import calibrate_gates
+    from quantdesk.search.loop import run_search
+
+    null_ok = isinstance(null_doc, dict) and null_doc.get("ok", True) is not False
+    gates = calibrate_gates(null_doc if null_ok else None)
+    runs = (
+        ("WALK-1", gbm_bars(SEARCH_BARS, seed=seed, sigma=0.01), "synthetic-gbm", seed),
+        ("PLANTED-1", planted_bars(SEARCH_BARS, seed=PLANTED_SEED, phi=PLANTED_PHI), "synthetic-ar1",
+         PLANTED_SEED),
+    )
+    series: dict[str, Any] = {}
+    for sym, rows, kind, s in runs:
+        series[sym] = _guard(
+            f"srch:{sym}",
+            lambda sym=sym, rows=rows, kind=kind, s=s: run_search(
+                rows, symbol=sym, seed=s, gates=gates, generations=generations,
+                per_generation=per_gen, kind=kind),
+        )
+    return {
+        "schema": SCHEMA,
+        "series": series,
+        "bars": SEARCH_BARS,
+        "planted": {"seed": PLANTED_SEED, "phi": PLANTED_PHI},
+        "generations": generations,
+        "per_generation": per_gen,
+        "gates": gates.to_dict(),
+        "note": SEARCH_NOTE,
+    }
+
+
 def gates_from_board() -> dict[str, int]:
     try:
         from quantdesk.research import board
@@ -170,6 +220,10 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--null-bars", type=int, default=BOARD_BARS, help="bars per null random walk")
     ap.add_argument("--now", type=float, default=FIXTURE_NOW,
                     help="fixture clock (unix seconds); pinned by default so rebuilds are byte-identical")
+    ap.add_argument("--search-generations", type=int, default=SEARCH_GENERATIONS,
+                    help="generations of the closed-loop search per series")
+    ap.add_argument("--search-per-generation", type=int, default=SEARCH_PER_GENERATION,
+                    help="proposals per generation")
     args = ap.parse_args(argv)
 
     out = Path(args.out)
@@ -191,6 +245,8 @@ def main(argv: list[str] | None = None) -> int:
         board = _guard("board", lambda: build_board(symbols, client, now))
         backtest = _guard("backtest", lambda: build_backtest(symbols, client, now))
     null = _guard("null", lambda: build_null(args.reseeds, args.null_bars, args.seed))
+    search = _guard("search", lambda: build_search(
+        args.seed, null, args.search_generations, args.search_per_generation))
     decisions = _split_decisions(backtest)
 
     board_ok = isinstance(board, dict) and board.get("ok", True) is not False
@@ -207,6 +263,11 @@ def main(argv: list[str] | None = None) -> int:
             "bars_1d": board.get("bars_1d") if board_ok else None,
             "backtest_bars_1d": BACKTEST_BARS_1D,
             "null_reseeds": args.reseeds,
+            "search_bars": SEARCH_BARS,
+            "search_generations": args.search_generations,
+            "search_per_generation": args.search_per_generation,
+            "planted_seed": PLANTED_SEED,
+            "planted_phi": PLANTED_PHI,
         },
         "gates": gates_from_board(),
         "cost_bps_default": cost_defaults(),
@@ -214,6 +275,7 @@ def main(argv: list[str] | None = None) -> int:
             "board": board_ok,
             "backtest": isinstance(backtest, dict) and backtest.get("ok", True) is not False,
             "null": isinstance(null, dict) and null.get("ok", True) is not False,
+            "search": isinstance(search, dict) and search.get("ok", True) is not False,
         },
         "note": NOTE,
     }
@@ -221,7 +283,8 @@ def main(argv: list[str] | None = None) -> int:
     print("output:", _scrub(str(out)))
     total = 0
     for name, doc in (("build.json", build), ("board.json", board), ("backtest.json", backtest),
-                      ("backtest_decisions.json", decisions), ("null.json", null)):
+                      ("backtest_decisions.json", decisions), ("null.json", null),
+                      ("search.json", search)):
         total += _write(out, name, doc)
     failed = [k for k, v in build["status"].items() if not v]
     print(f"total {total:,d} bytes in {time.perf_counter() - t_start:.1f}s"

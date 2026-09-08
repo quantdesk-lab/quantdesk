@@ -74,10 +74,12 @@ claims at all; it is intended to be correct and readable, not fast.
 
 "Sharpe 1.2 on the first attempt" and "Sharpe 1.2, best of forty attempts"
 are different results, and only the second one is likely. Every reported
-backtest carries a `trial_count`; the site fixtures carry `trial_count: 1`
-because they are a single deterministic run on synthetic data. Keep a running
-log of attempts per signal family (see `docs/RESEARCH_DISCIPLINE.md`) and
-deflate expectations accordingly.
+backtest carries a `trial_count`; the site's backtest page carries
+`trial_count: 1` because it is a single deterministic run on synthetic data,
+and the site's search page carries the ledger count `N` of every candidate
+the loop scored. Keep a running log of attempts per signal family (see
+`docs/RESEARCH_DISCIPLINE.md`) and deflate expectations accordingly - rule 14
+says how the search loop does it in code.
 
 ## 8. Touch-once holdout
 
@@ -131,6 +133,28 @@ explanation. It does not know your situation, your venue, your tax position,
 or the future. All figures on the demo site are computed on synthetic
 geometric-Brownian-motion paths and have no relationship to any real asset.
 
+## 14. Multiple testing is deflated
+
+Every candidate the search loop scores increments a per-run ledger. The null
+threshold a candidate must clear is the max-of-N quantile of the calibrated
+null for the current ledger count and the candidate's own pair count,
+`kappa * z((1 + q^(1/N)) / 2) / sqrt(n - 1)`, so it rises with every trial.
+Duplicates, gate refusals and cap rejections are counted separately and do
+not raise `N`: a candidate that cannot win cannot inflate the maximum.
+Candidates are positively dependent (a window-step neighbour is nearly the
+same series), which makes the bar conservative, never loose; no "effective
+number of tests" is estimated, because it would be a number nobody can
+defend. Every archived verdict stamps the ledger count, the threshold it was
+judged against, the threshold at the final count, and the gate version. A
+survivor's holdout IC is printed beside the number of candidates that
+competed for the holdout and a p-value adjusted for that number.
+
+Where it is enforced: `quantdesk.search.ledger.deflated_threshold` (monotone
+in `N`, pinned against a brute-force max-of-N simulation by test),
+`quantdesk.search.gates` (the `kappa` calibration and the version stamp),
+`quantdesk.search.loop` (the final re-check before anything touches the
+holdout), `site/data/search.json` (the `ledger` block the page prints).
+
 ## Where it is enforced
 
 | rule | mechanism |
@@ -143,4 +167,8 @@ geometric-Brownian-motion paths and have no relationship to any real asset.
 | synthetic-only site (13) | `site/data/build.json` names the fixture kind and seed; no venue data exists in the tree |
 | forbidden claims (5, 6) | reviewers check this file |
 | hand-carried counts (10) | `scripts/check_test_count.py` in CI compares the README's test counts with `pytest --collect-only` |
+| trial counts (7) | `quantdesk.search.ledger.TrialLedger`; `search.json.ledger.n_trials` is the count the site prints; `backtest.json` keeps `trial_count: 1` |
+| touch-once holdout (8) | `quantdesk.search.walkforward.HoldoutLedger` raises `HoldoutSpent` on a second touch; the archive's meta records the touch (`tests/test_search_walkforward.py`, `tests/test_search_loop.py`) |
+| deflation (14) | `quantdesk.search.ledger.deflated_threshold` is monotone in `N` and pinned against a brute-force simulation (`tests/test_search_ledger.py`); `gates_version`, `threshold_at_verdict` and `threshold_final` on every archived record |
+| no lookahead in the search | `quantdesk.search.expr.evaluate` dispatches only to the alpha101 operators; prefix determinism over random trees in `tests/test_search_expr.py`; forward returns never leave the range they are scored in (`walkforward.ic_on_range`) |
 | leaked identifiers | CI runs `scripts/scan_forbidden.py --strict`: generic detectors (CJK, personal-path shapes, secret shapes, bytecode and data artefacts) plus a private word list supplied through the `SCAN_PRIVATE_PATTERNS` secret - the public scanner deliberately carries no list of names; locally, run it after `git clean -fdX` or accept that gitignored caches are skipped by default |

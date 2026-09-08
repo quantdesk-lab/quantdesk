@@ -42,13 +42,20 @@ alpha, if any, is yours.
    `research/experiments.md` in your own workspace is enough): date, config,
    window, metrics, and the attempt number *for that signal family*. Two
    "different ideas" that are the same hypothesis in different clothes share
-   one budget.
+   one budget. The search loop keeps this ledger in code
+   (`quantdesk.search.ledger.TrialLedger`): every scored candidate raises
+   the trial count, every verdict stamps it, and the null bar a candidate
+   must clear rises with it (`docs/SEARCH.md`).
 
 5. **Parameter sensitivity: +/-20%.** Neighbors of the chosen parameters at
    +/-20% must not flip the sign of the result. A spike surrounded by losses
    is curve fitting - reject it. The volatility target in TSMOM is a special
    case: it changes notional and fee load, not Sharpe; sweeping it "for
-   Sharpe" means the harness is broken.
+   Sharpe" means the harness is broken. The search loop's `window_step`
+   mutation is this rule on the library's own grid: it moves one window or
+   lag parameter to the adjacent value in `WINDOWS` / `LAGS` (roughly
+   +/-20-50%, not exactly 20%), and a neighbour that flips sign is recorded
+   beside its parent.
 
 6. **Costs are not optional, and 2x is the fragility test.** Decide the
    venue's real per-side cost (60 bps maker / 120 bps taker is a common
@@ -61,7 +68,9 @@ alpha, if any, is yours.
 7. **Touch-once holdout.** Hold out the most recent window. Evaluate each
    signal family on it exactly once, and record that you did. If you tuned
    on it, say so and treat the holdout as spent - the number is now
-   in-sample.
+   in-sample. In the search loop this is enforced, not requested:
+   `quantdesk.search.walkforward.HoldoutLedger` records the one touch in
+   the archive and raises `HoldoutSpent` on a second.
 
 ## Hard honesty rules
 
